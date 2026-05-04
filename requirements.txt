@@ -1,3 +1,4 @@
 pytest
 pydantic
 python-dotenv
+boto3

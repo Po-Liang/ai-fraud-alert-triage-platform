@@ -25,11 +25,24 @@ The MVP will include:
 - Local Python environment
 - Deterministic risk scoring service
 - AI summary service stub
+- DynamoDB repository layer
 - Unit tests for risk scoring
+
+## Phase 2: DynamoDB Repository Layer
+
+Phase 2 adds a dedicated repository layer for alert persistence in DynamoDB. This layer is responsible for creating alerts, fetching a single alert, listing alerts, and updating stored status or analysis results.
+
+Database access is intentionally separated from business logic so the scoring and summary services can stay focused on fraud analysis rather than storage concerns. This keeps the code easier to test, easier to evolve, and clearer for future Lambda handlers that will orchestrate the workflow.
+
+Current DynamoDB item design:
+
+- `PK = ALERT#{alertId}`
+- `SK = METADATA`
+
+The repository layer is implemented locally in Python for now. Actual AWS infrastructure and deployment wiring will be added later with AWS SAM.
 
 ### Next Steps
 
-- Add DynamoDB repository layer
 - Add Lambda API handlers
 - Add SQS analysis worker
 - Add AWS SAM template
