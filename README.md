@@ -27,6 +27,7 @@ The MVP will include:
 - AI summary service stub
 - DynamoDB repository layer
 - Alert service layer
+- Lambda handlers for REST API layer
 - Unit tests for risk scoring
 
 ## Phase 2: DynamoDB Repository Layer
@@ -50,9 +51,23 @@ The service layer is responsible for orchestrating the workflow, while the repos
 
 This separation makes the backend easier to test, easier to maintain, and easier to extend as Lambda handlers, queues, and deployment infrastructure are added in later phases.
 
+## Phase 4: Lambda Handler Layer
+
+Phase 4 adds thin Lambda handlers as the REST API entry points for the platform.
+
+These handlers parse API Gateway proxy-style events, validate incoming request data, and return HTTP-style JSON responses. Business logic remains in the alert service layer, and DynamoDB access remains in the repository layer.
+
+Current handlers include:
+
+- Create alert
+- Get alert
+- List alerts
+- Analyze alert
+
+The handler layer is implemented locally in Python for now. Actual API Gateway and AWS SAM deployment wiring will be added in the next phase.
+
 ### Next Steps
 
-- Add Lambda API handlers
 - Add SQS analysis worker
 - Add AWS SAM template
 - Deploy to AWS
