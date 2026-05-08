@@ -8,10 +8,6 @@ Globals:
     CodeUri: .
     Timeout: 10
     MemorySize: 128
-    Environment:
-      Variables:
-        ALERTS_TABLE_NAME: !Ref FraudAlertsTable
-        ANALYSIS_QUEUE_URL: !Ref FraudAnalysisQueue
 
 Resources:
   FraudTriageApi:
@@ -55,12 +51,20 @@ Resources:
       BuildMethod: makefile
     Properties:
       Handler: src.handlers.create_alert.lambda_handler
+      Environment:
+        Variables:
+          ALERTS_TABLE_NAME: !Ref FraudAlertsTable
+          ANALYSIS_QUEUE_URL: !Ref FraudAnalysisQueue
       Policies:
         - Statement:
             - Effect: Allow
               Action:
                 - dynamodb:PutItem
               Resource: !GetAtt FraudAlertsTable.Arn
+            - Effect: Allow
+              Action:
+                - sqs:SendMessage
+              Resource: !GetAtt FraudAnalysisQueue.Arn
       Events:
         CreateAlertApi:
           Type: Api
@@ -75,6 +79,9 @@ Resources:
       BuildMethod: makefile
     Properties:
       Handler: src.handlers.list_alerts.lambda_handler
+      Environment:
+        Variables:
+          ALERTS_TABLE_NAME: !Ref FraudAlertsTable
       Policies:
         - Statement:
             - Effect: Allow
@@ -95,6 +102,9 @@ Resources:
       BuildMethod: makefile
     Properties:
       Handler: src.handlers.get_alert.lambda_handler
+      Environment:
+        Variables:
+          ALERTS_TABLE_NAME: !Ref FraudAlertsTable
       Policies:
         - Statement:
             - Effect: Allow
@@ -115,6 +125,38 @@ Resources:
       BuildMethod: makefile
     Properties:
       Handler: src.handlers.analyze_alert.lambda_handler
+      Environment:
+        Variables:
+          ALERTS_TABLE_NAME: !Ref FraudAlertsTable
+          ANALYSIS_QUEUE_URL: !Ref FraudAnalysisQueue
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:GetItem
+                - dynamodb:UpdateItem
+              Resource: !GetAtt FraudAlertsTable.Arn
+            - Effect: Allow
+              Action:
+                - sqs:SendMessage
+              Resource: !GetAtt FraudAnalysisQueue.Arn
+      Events:
+        AnalyzeAlertApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FraudTriageApi
+            Path: /alerts/{alertId}/analyze
+            Method: post
+
+  AnalysisWorkerFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: makefile
+    Properties:
+      Handler: src.handlers.analysis_worker.lambda_handler
+      Environment:
+        Variables:
+          ALERTS_TABLE_NAME: !Ref FraudAlertsTable
       Policies:
         - Statement:
             - Effect: Allow
@@ -123,12 +165,13 @@ Resources:
                 - dynamodb:UpdateItem
               Resource: !GetAtt FraudAlertsTable.Arn
       Events:
-        AnalyzeAlertApi:
-          Type: Api
+        AnalysisQueueEvent:
+          Type: SQS
           Properties:
-            RestApiId: !Ref FraudTriageApi
-            Path: /alerts/{alertId}/analyze
-            Method: post
+            Queue: !GetAtt FraudAnalysisQueue.Arn
+            BatchSize: 10
+            FunctionResponseTypes:
+              - ReportBatchItemFailures
 
 Outputs:
   ApiEndpoint:

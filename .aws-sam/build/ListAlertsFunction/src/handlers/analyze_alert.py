@@ -12,8 +12,10 @@ def lambda_handler(event, context):
         return error_response("alertId path parameter is required", status_code=400)
 
     try:
-        analysis_result = alert_service.analyze_alert(alert_id)
+        queued_result = alert_service.request_analysis(alert_id)
     except alert_service.AlertNotFoundError:
         return error_response("Alert not found", status_code=404)
+    except alert_service.AnalysisRequestError as error:
+        return error_response(str(error), status_code=500)
 
-    return success_response(analysis_result)
+    return success_response(queued_result, status_code=202)

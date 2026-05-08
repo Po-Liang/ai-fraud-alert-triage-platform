@@ -26,5 +26,7 @@ def lambda_handler(event, context):
         created_alert = alert_service.create_alert(input_data)
     except (ValidationError, ValueError) as error:
         return error_response(str(error), status_code=400)
+    except alert_service.AnalysisRequestError as error:
+        return error_response(str(error), status_code=500)
 
     return success_response(created_alert, status_code=201)

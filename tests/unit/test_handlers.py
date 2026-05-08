@@ -56,6 +56,37 @@ def test_create_alert_returns_400_for_non_object_json():
     }
 
 
+def test_create_alert_returns_500_when_queueing_fails(monkeypatch):
+    def raise_queue_error(input_data):
+        raise create_alert.alert_service.AnalysisRequestError("Failed to queue analysis job")
+
+    monkeypatch.setattr(
+        create_alert.alert_service,
+        "create_alert",
+        raise_queue_error,
+    )
+
+    response = create_alert.lambda_handler(
+        {
+            "body": json.dumps(
+                {
+                    "customerId": "cust-1",
+                    "accountId": "acct-1",
+                    "alertType": "SUSPICIOUS_TRANSFER",
+                    "amount": 1000,
+                    "country": "JP",
+                }
+            )
+        },
+        None,
+    )
+
+    assert response["statusCode"] == 500
+    assert json.loads(response["body"]) == {
+        "message": "Failed to queue analysis job"
+    }
+
+
 def test_get_alert_returns_400_when_alert_id_is_missing():
     response = get_alert.lambda_handler({"pathParameters": {}}, None)
 
@@ -170,7 +201,7 @@ def test_analyze_alert_returns_404_when_alert_is_not_found(monkeypatch):
 
     monkeypatch.setattr(
         analyze_alert.alert_service,
-        "analyze_alert",
+        "request_analysis",
         raise_not_found,
     )
 
@@ -183,16 +214,36 @@ def test_analyze_alert_returns_404_when_alert_is_not_found(monkeypatch):
     assert json.loads(response["body"]) == {"message": "Alert not found"}
 
 
-def test_analyze_alert_returns_200_with_analysis_result(monkeypatch):
+def test_analyze_alert_returns_500_when_queueing_fails(monkeypatch):
+    def raise_queue_error(alert_id):
+        raise analyze_alert.alert_service.AnalysisRequestError("Failed to queue analysis job")
+
     monkeypatch.setattr(
         analyze_alert.alert_service,
-        "analyze_alert",
+        "request_analysis",
+        raise_queue_error,
+    )
+
+    response = analyze_alert.lambda_handler(
+        {"pathParameters": {"alertId": "alert-123"}},
+        None,
+    )
+
+    assert response["statusCode"] == 500
+    assert json.loads(response["body"]) == {
+        "message": "Failed to queue analysis job"
+    }
+
+
+def test_analyze_alert_returns_202_with_queued_response(monkeypatch):
+    monkeypatch.setattr(
+        analyze_alert.alert_service,
+        "request_analysis",
         lambda alert_id: {
-            "riskScore": 75,
-            "riskLevel": "HIGH",
-            "signals": ["Beneficiary is new"],
-            "aiSummary": "Escalate for manual review.",
-            "recommendedActions": ["Verify the beneficiary relationship"],
+            "alertId": alert_id,
+            "status": "PENDING_ANALYSIS",
+            "message": "Analysis job queued",
+            "messageId": "msg-123",
         },
     )
 
@@ -201,5 +252,10 @@ def test_analyze_alert_returns_200_with_analysis_result(monkeypatch):
         None,
     )
 
-    assert response["statusCode"] == 200
-    assert json.loads(response["body"])["riskLevel"] == "HIGH"
+    assert response["statusCode"] == 202
+    assert json.loads(response["body"]) == {
+        "alertId": "alert-123",
+        "status": "PENDING_ANALYSIS",
+        "message": "Analysis job queued",
+        "messageId": "msg-123",
+    }
