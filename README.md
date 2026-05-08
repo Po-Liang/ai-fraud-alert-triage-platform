@@ -28,6 +28,7 @@ The MVP will include:
 - DynamoDB repository layer
 - Alert service layer
 - Lambda handlers for REST API layer
+- AWS SAM infrastructure template
 - Unit tests for risk scoring
 
 ## Phase 2: DynamoDB Repository Layer
@@ -66,8 +67,15 @@ Current handlers include:
 
 The handler layer is implemented locally in Python for now. Actual API Gateway and AWS SAM deployment wiring will be added in the next phase.
 
+## Phase 5: AWS SAM Infrastructure
+
+Phase 5 adds an AWS SAM template that defines the core infrastructure for the current backend.
+
+The `template.yaml` file defines the serverless infrastructure for the project. API Gateway routes are mapped to the existing Lambda handlers, the DynamoDB table stores fraud alerts using the `PK` and `SK` key structure, and the SQS queue plus dead-letter queue are prepared for future asynchronous analysis workflows.
+
+This infrastructure layer is intentionally simple for the MVP. Deployment will be handled in a later phase, and the current template does not yet include Cognito authentication or real AI model integration such as OpenAI or Bedrock.
+
 ### Next Steps
 
 - Add SQS analysis worker
-- Add AWS SAM template
 - Deploy to AWS
