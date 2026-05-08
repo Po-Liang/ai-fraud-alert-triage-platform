@@ -7,12 +7,6 @@ Globals:
     CodeUri: .
     Timeout: 10
     MemorySize: 128
-    Environment:
-      Variables:
-        ALERTS_TABLE_NAME:
-          Ref: FraudAlertsTable
-        ANALYSIS_QUEUE_URL:
-          Ref: FraudAnalysisQueue
 Resources:
   FraudTriageApi:
     Type: AWS::Serverless::Api
@@ -55,6 +49,12 @@ Resources:
       SamResourceId: CreateAlertFunction
     Properties:
       Handler: src.handlers.create_alert.lambda_handler
+      Environment:
+        Variables:
+          ALERTS_TABLE_NAME:
+            Ref: FraudAlertsTable
+          ANALYSIS_QUEUE_URL:
+            Ref: FraudAnalysisQueue
       Policies:
       - Statement:
         - Effect: Allow
@@ -63,6 +63,13 @@ Resources:
           Resource:
             Fn::GetAtt:
             - FraudAlertsTable
+            - Arn
+        - Effect: Allow
+          Action:
+          - sqs:SendMessage
+          Resource:
+            Fn::GetAtt:
+            - FraudAnalysisQueue
             - Arn
       Events:
         CreateAlertApi:
@@ -80,6 +87,10 @@ Resources:
       SamResourceId: ListAlertsFunction
     Properties:
       Handler: src.handlers.list_alerts.lambda_handler
+      Environment:
+        Variables:
+          ALERTS_TABLE_NAME:
+            Ref: FraudAlertsTable
       Policies:
       - Statement:
         - Effect: Allow
@@ -105,6 +116,10 @@ Resources:
       SamResourceId: GetAlertFunction
     Properties:
       Handler: src.handlers.get_alert.lambda_handler
+      Environment:
+        Variables:
+          ALERTS_TABLE_NAME:
+            Ref: FraudAlertsTable
       Policies:
       - Statement:
         - Effect: Allow
@@ -130,6 +145,49 @@ Resources:
       SamResourceId: AnalyzeAlertFunction
     Properties:
       Handler: src.handlers.analyze_alert.lambda_handler
+      Environment:
+        Variables:
+          ALERTS_TABLE_NAME:
+            Ref: FraudAlertsTable
+          ANALYSIS_QUEUE_URL:
+            Ref: FraudAnalysisQueue
+      Policies:
+      - Statement:
+        - Effect: Allow
+          Action:
+          - dynamodb:GetItem
+          - dynamodb:UpdateItem
+          Resource:
+            Fn::GetAtt:
+            - FraudAlertsTable
+            - Arn
+        - Effect: Allow
+          Action:
+          - sqs:SendMessage
+          Resource:
+            Fn::GetAtt:
+            - FraudAnalysisQueue
+            - Arn
+      Events:
+        AnalyzeAlertApi:
+          Type: Api
+          Properties:
+            RestApiId:
+              Ref: FraudTriageApi
+            Path: /alerts/{alertId}/analyze
+            Method: post
+      CodeUri: AnalyzeAlertFunction
+  AnalysisWorkerFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: makefile
+      SamResourceId: AnalysisWorkerFunction
+    Properties:
+      Handler: src.handlers.analysis_worker.lambda_handler
+      Environment:
+        Variables:
+          ALERTS_TABLE_NAME:
+            Ref: FraudAlertsTable
       Policies:
       - Statement:
         - Effect: Allow
@@ -141,14 +199,17 @@ Resources:
             - FraudAlertsTable
             - Arn
       Events:
-        AnalyzeAlertApi:
-          Type: Api
+        AnalysisQueueEvent:
+          Type: SQS
           Properties:
-            RestApiId:
-              Ref: FraudTriageApi
-            Path: /alerts/{alertId}/analyze
-            Method: post
-      CodeUri: AnalyzeAlertFunction
+            Queue:
+              Fn::GetAtt:
+              - FraudAnalysisQueue
+              - Arn
+            BatchSize: 10
+            FunctionResponseTypes:
+            - ReportBatchItemFailures
+      CodeUri: AnalysisWorkerFunction
 Outputs:
   ApiEndpoint:
     Description: API Gateway endpoint URL for the Fraud Triage API.

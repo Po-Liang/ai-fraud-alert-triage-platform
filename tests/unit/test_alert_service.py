@@ -6,9 +6,15 @@ from src.services import alert_service
 def test_create_alert_generates_defaults_and_calls_repository(monkeypatch):
     repository_mock = Mock()
     repository_mock.create_alert.return_value = {"alertId": "alert-123"}
+    send_analysis_job_mock = Mock(return_value={"messageId": "msg-123"})
     monkeypatch.setattr(alert_service, "_current_timestamp", lambda: "2026-05-07T10:00:00Z")
     monkeypatch.setattr(alert_service, "_generate_alert_id", lambda: "alert-123")
     monkeypatch.setattr(alert_service.alert_repository, "create_alert", repository_mock.create_alert)
+    monkeypatch.setattr(
+        alert_service.queue_service,
+        "send_analysis_job",
+        send_analysis_job_mock,
+    )
 
     result = alert_service.create_alert(
         {
@@ -39,13 +45,23 @@ def test_create_alert_generates_defaults_and_calls_repository(monkeypatch):
             "updatedAt": "2026-05-07T10:00:00Z",
         }
     )
+    send_analysis_job_mock.assert_called_once_with(
+        "alert-123",
+        analysis_type="INITIAL_ANALYSIS",
+    )
 
 
 def test_create_alert_preserves_existing_identifiers_and_timestamps(monkeypatch):
     repository_mock = Mock()
     repository_mock.create_alert.return_value = {"alertId": "existing-alert"}
+    send_analysis_job_mock = Mock(return_value={"messageId": "msg-123"})
     monkeypatch.setattr(alert_service, "_current_timestamp", lambda: "2026-05-07T10:00:00Z")
     monkeypatch.setattr(alert_service.alert_repository, "create_alert", repository_mock.create_alert)
+    monkeypatch.setattr(
+        alert_service.queue_service,
+        "send_analysis_job",
+        send_analysis_job_mock,
+    )
 
     result = alert_service.create_alert(
         {
@@ -79,14 +95,24 @@ def test_create_alert_preserves_existing_identifiers_and_timestamps(monkeypatch)
             "updatedAt": "2026-05-07T09:00:00Z",
         }
     )
+    send_analysis_job_mock.assert_called_once_with(
+        "existing-alert",
+        analysis_type="INITIAL_ANALYSIS",
+    )
 
 
 def test_create_alert_generates_id_when_input_alert_id_is_blank(monkeypatch):
     repository_mock = Mock()
     repository_mock.create_alert.return_value = {"alertId": "generated-alert"}
+    send_analysis_job_mock = Mock(return_value={"messageId": "msg-123"})
     monkeypatch.setattr(alert_service, "_current_timestamp", lambda: "2026-05-07T10:00:00Z")
     monkeypatch.setattr(alert_service, "_generate_alert_id", lambda: "generated-alert")
     monkeypatch.setattr(alert_service.alert_repository, "create_alert", repository_mock.create_alert)
+    monkeypatch.setattr(
+        alert_service.queue_service,
+        "send_analysis_job",
+        send_analysis_job_mock,
+    )
 
     alert_service.create_alert(
         {
@@ -102,6 +128,10 @@ def test_create_alert_generates_id_when_input_alert_id_is_blank(monkeypatch):
     repository_mock.create_alert.assert_called_once()
     created_alert = repository_mock.create_alert.call_args.args[0]
     assert created_alert["alertId"] == "generated-alert"
+    send_analysis_job_mock.assert_called_once_with(
+        "generated-alert",
+        analysis_type="INITIAL_ANALYSIS",
+    )
 
 
 def test_get_alert_delegates_to_repository(monkeypatch):
@@ -126,6 +156,103 @@ def test_list_alerts_delegates_to_repository(monkeypatch):
     result = alert_service.list_alerts(limit=2)
 
     assert result == [{"alertId": "alert-1"}, {"alertId": "alert-2"}]
+
+
+def test_request_analysis_queues_job_for_existing_alert(monkeypatch):
+    get_alert_mock = Mock(return_value={"alertId": "alert-123"})
+    update_status_mock = Mock()
+    send_analysis_job_mock = Mock(return_value={"messageId": "msg-123"})
+
+    monkeypatch.setattr(alert_service.alert_repository, "get_alert", get_alert_mock)
+    monkeypatch.setattr(
+        alert_service.alert_repository,
+        "update_status",
+        update_status_mock,
+    )
+    monkeypatch.setattr(
+        alert_service.queue_service,
+        "send_analysis_job",
+        send_analysis_job_mock,
+    )
+
+    result = alert_service.request_analysis("alert-123")
+
+    assert result == {
+        "alertId": "alert-123",
+        "status": "PENDING_ANALYSIS",
+        "message": "Analysis job queued",
+        "messageId": "msg-123",
+    }
+    get_alert_mock.assert_called_once_with("alert-123")
+    update_status_mock.assert_called_once_with("alert-123", "PENDING_ANALYSIS")
+    send_analysis_job_mock.assert_called_once_with(
+        "alert-123",
+        analysis_type="INITIAL_ANALYSIS",
+    )
+
+
+def test_request_analysis_raises_when_alert_does_not_exist(monkeypatch):
+    monkeypatch.setattr(alert_service.alert_repository, "get_alert", lambda alert_id: None)
+
+    try:
+        alert_service.request_analysis("missing-alert")
+    except alert_service.AlertNotFoundError as error:
+        assert str(error) == "Alert 'missing-alert' does not exist"
+    else:
+        raise AssertionError("Expected request_analysis to raise AlertNotFoundError")
+
+
+def test_create_alert_translates_queue_failure(monkeypatch):
+    repository_mock = Mock()
+    repository_mock.create_alert.return_value = {"alertId": "alert-123"}
+    monkeypatch.setattr(alert_service, "_current_timestamp", lambda: "2026-05-07T10:00:00Z")
+    monkeypatch.setattr(alert_service, "_generate_alert_id", lambda: "alert-123")
+    monkeypatch.setattr(alert_service.alert_repository, "create_alert", repository_mock.create_alert)
+    monkeypatch.setattr(
+        alert_service.queue_service,
+        "send_analysis_job",
+        Mock(side_effect=alert_service.queue_service.QueueServiceError("boom")),
+    )
+
+    try:
+        alert_service.create_alert(
+            {
+                "customerId": "cust-1",
+                "accountId": "acct-1",
+                "alertType": "SUSPICIOUS_TRANSFER",
+                "amount": 125000,
+                "country": "JP",
+            }
+        )
+    except alert_service.AnalysisRequestError as error:
+        assert str(error) == "Failed to queue analysis job"
+    else:
+        raise AssertionError("Expected create_alert to translate queue failure")
+
+
+def test_request_analysis_translates_queue_failure(monkeypatch):
+    monkeypatch.setattr(
+        alert_service.alert_repository,
+        "get_alert",
+        lambda alert_id: {"alertId": alert_id},
+    )
+    monkeypatch.setattr(
+        alert_service.alert_repository,
+        "update_status",
+        Mock(),
+    )
+    monkeypatch.setattr(
+        alert_service.queue_service,
+        "send_analysis_job",
+        Mock(side_effect=alert_service.queue_service.QueueServiceError("boom")),
+    )
+
+    try:
+        alert_service.request_analysis("alert-123")
+    except alert_service.AnalysisRequestError as error:
+        assert str(error) == "Failed to queue analysis job"
+    else:
+        raise AssertionError("Expected request_analysis to translate queue failure")
 
 
 def test_analyze_alert_raises_clear_error_when_alert_is_missing(monkeypatch):

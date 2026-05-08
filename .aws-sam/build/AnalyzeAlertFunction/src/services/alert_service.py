@@ -6,7 +6,7 @@ from uuid import uuid4
 
 from src.models.alert import AlertInput
 from src.repositories import alert_repository
-from src.services import ai_summary_service, risk_scoring_service
+from src.services import ai_summary_service, queue_service, risk_scoring_service
 
 STATUS_PENDING_ANALYSIS = "PENDING_ANALYSIS"
 STATUS_ANALYSIS_IN_PROGRESS = "ANALYSIS_IN_PROGRESS"
@@ -19,6 +19,10 @@ class AlertServiceError(RuntimeError):
 
 class AlertNotFoundError(AlertServiceError):
     """Raised when the requested alert does not exist."""
+
+
+class AnalysisRequestError(AlertServiceError):
+    """Raised when an analysis job cannot be queued."""
 
 
 def _current_timestamp() -> str:
@@ -75,8 +79,24 @@ def _build_analysis_result(
     }
 
 
+def _queue_analysis_job(
+    alert_id: str,
+    analysis_type: str = "INITIAL_ANALYSIS",
+) -> dict[str, Any]:
+    try:
+        return queue_service.send_analysis_job(
+            alert_id,
+            analysis_type=analysis_type,
+        )
+    except queue_service.QueueServiceError as error:
+        raise AnalysisRequestError("Failed to queue analysis job") from error
+
+
 def create_alert(input_data: dict) -> dict:
-    return alert_repository.create_alert(_build_alert_for_create(input_data))
+    created_alert = alert_repository.create_alert(_build_alert_for_create(input_data))
+    _queue_analysis_job(created_alert["alertId"])
+
+    return created_alert
 
 
 def get_alert(alert_id: str) -> dict | None:
@@ -85,6 +105,26 @@ def get_alert(alert_id: str) -> dict | None:
 
 def list_alerts(limit: int = 20) -> list[dict]:
     return alert_repository.list_alerts(limit=limit)
+
+
+def request_analysis(alert_id: str) -> dict:
+    alert = alert_repository.get_alert(alert_id)
+    if alert is None:
+        raise AlertNotFoundError(f"Alert '{alert_id}' does not exist")
+
+    try:
+        alert_repository.update_status(alert_id, STATUS_PENDING_ANALYSIS)
+    except alert_repository.AlertNotFoundError as error:
+        raise AlertNotFoundError(f"Alert '{alert_id}' does not exist") from error
+
+    queue_result = _queue_analysis_job(alert_id)
+
+    return {
+        "alertId": alert_id,
+        "status": STATUS_PENDING_ANALYSIS,
+        "message": "Analysis job queued",
+        "messageId": queue_result.get("messageId"),
+    }
 
 
 def analyze_alert(alert_id: str) -> dict:
