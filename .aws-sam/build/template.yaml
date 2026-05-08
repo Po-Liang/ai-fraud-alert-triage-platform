@@ -1,0 +1,164 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: AI-powered fraud alert triage platform infrastructure for Phase 5.
+Globals:
+  Function:
+    Runtime: python3.12
+    CodeUri: .
+    Timeout: 10
+    MemorySize: 128
+    Environment:
+      Variables:
+        ALERTS_TABLE_NAME:
+          Ref: FraudAlertsTable
+        ANALYSIS_QUEUE_URL:
+          Ref: FraudAnalysisQueue
+Resources:
+  FraudTriageApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: FraudTriageApi
+      StageName: Prod
+  FraudAlertsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: FraudAlertsTable
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+      - AttributeName: PK
+        AttributeType: S
+      - AttributeName: SK
+        AttributeType: S
+      KeySchema:
+      - AttributeName: PK
+        KeyType: HASH
+      - AttributeName: SK
+        KeyType: RANGE
+  FraudAnalysisDeadLetterQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: FraudAnalysisDeadLetterQueue
+  FraudAnalysisQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: FraudAnalysisQueue
+      RedrivePolicy:
+        deadLetterTargetArn:
+          Fn::GetAtt:
+          - FraudAnalysisDeadLetterQueue
+          - Arn
+        maxReceiveCount: 3
+  CreateAlertFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: makefile
+      SamResourceId: CreateAlertFunction
+    Properties:
+      Handler: src.handlers.create_alert.lambda_handler
+      Policies:
+      - Statement:
+        - Effect: Allow
+          Action:
+          - dynamodb:PutItem
+          Resource:
+            Fn::GetAtt:
+            - FraudAlertsTable
+            - Arn
+      Events:
+        CreateAlertApi:
+          Type: Api
+          Properties:
+            RestApiId:
+              Ref: FraudTriageApi
+            Path: /alerts
+            Method: post
+      CodeUri: CreateAlertFunction
+  ListAlertsFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: makefile
+      SamResourceId: ListAlertsFunction
+    Properties:
+      Handler: src.handlers.list_alerts.lambda_handler
+      Policies:
+      - Statement:
+        - Effect: Allow
+          Action:
+          - dynamodb:Scan
+          Resource:
+            Fn::GetAtt:
+            - FraudAlertsTable
+            - Arn
+      Events:
+        ListAlertsApi:
+          Type: Api
+          Properties:
+            RestApiId:
+              Ref: FraudTriageApi
+            Path: /alerts
+            Method: get
+      CodeUri: ListAlertsFunction
+  GetAlertFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: makefile
+      SamResourceId: GetAlertFunction
+    Properties:
+      Handler: src.handlers.get_alert.lambda_handler
+      Policies:
+      - Statement:
+        - Effect: Allow
+          Action:
+          - dynamodb:GetItem
+          Resource:
+            Fn::GetAtt:
+            - FraudAlertsTable
+            - Arn
+      Events:
+        GetAlertApi:
+          Type: Api
+          Properties:
+            RestApiId:
+              Ref: FraudTriageApi
+            Path: /alerts/{alertId}
+            Method: get
+      CodeUri: GetAlertFunction
+  AnalyzeAlertFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: makefile
+      SamResourceId: AnalyzeAlertFunction
+    Properties:
+      Handler: src.handlers.analyze_alert.lambda_handler
+      Policies:
+      - Statement:
+        - Effect: Allow
+          Action:
+          - dynamodb:GetItem
+          - dynamodb:UpdateItem
+          Resource:
+            Fn::GetAtt:
+            - FraudAlertsTable
+            - Arn
+      Events:
+        AnalyzeAlertApi:
+          Type: Api
+          Properties:
+            RestApiId:
+              Ref: FraudTriageApi
+            Path: /alerts/{alertId}/analyze
+            Method: post
+      CodeUri: AnalyzeAlertFunction
+Outputs:
+  ApiEndpoint:
+    Description: API Gateway endpoint URL for the Fraud Triage API.
+    Value:
+      Fn::Sub: https://${FraudTriageApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/
+  FraudAlertsTableName:
+    Description: Name of the fraud alerts DynamoDB table.
+    Value:
+      Ref: FraudAlertsTable
+  FraudAnalysisQueueUrl:
+    Description: URL of the fraud analysis SQS queue.
+    Value:
+      Ref: FraudAnalysisQueue
