@@ -1,8 +1,6 @@
 import json
 from json import JSONDecodeError
 
-from pydantic import ValidationError
-
 from src.services import alert_service
 from src.utils.response import error_response, success_response
 
@@ -24,7 +22,7 @@ def lambda_handler(event, context):
 
     try:
         created_alert = alert_service.create_alert(input_data)
-    except (ValidationError, ValueError) as error:
+    except ValueError as error:
         return error_response(str(error), status_code=400)
     except alert_service.AnalysisRequestError as error:
         return error_response(str(error), status_code=500)

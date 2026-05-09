@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from typing import Any
 from uuid import uuid4
 
-from src.models.alert import AlertInput
+from src.models.alert import validate_alert_input
 from src.repositories import alert_repository
 from src.services import ai_summary_service, queue_service, risk_scoring_service
 
@@ -46,19 +46,12 @@ def _get_or_generate_alert_id(input_data: dict[str, Any]) -> str:
     return _generate_alert_id()
 
 
-def _model_to_dict(model: AlertInput) -> dict[str, Any]:
-    if hasattr(model, "model_dump"):
-        return model.model_dump()
-
-    return model.dict()
-
-
 def _build_alert_for_create(input_data: dict[str, Any]) -> dict[str, Any]:
-    validated_input = AlertInput(**input_data)
+    validated_input = validate_alert_input(input_data)
     created_at = input_data.get("createdAt") or _current_timestamp()
 
     return {
-        **_model_to_dict(validated_input),
+        **validated_input,
         "alertId": _get_or_generate_alert_id(input_data),
         "status": STATUS_PENDING_ANALYSIS,
         "createdAt": created_at,

@@ -56,6 +56,36 @@ def test_create_alert_returns_400_for_non_object_json():
     }
 
 
+def test_create_alert_returns_400_for_invalid_request_fields(monkeypatch):
+    monkeypatch.setattr(
+        create_alert.alert_service,
+        "create_alert",
+        lambda input_data: (_ for _ in ()).throw(
+            ValueError("amount must be greater than or equal to 0")
+        ),
+    )
+
+    response = create_alert.lambda_handler(
+        {
+            "body": json.dumps(
+                {
+                    "customerId": "cust-1",
+                    "accountId": "acct-1",
+                    "alertType": "SUSPICIOUS_TRANSFER",
+                    "amount": -1,
+                    "country": "JP",
+                }
+            )
+        },
+        None,
+    )
+
+    assert response["statusCode"] == 400
+    assert json.loads(response["body"]) == {
+        "message": "amount must be greater than or equal to 0"
+    }
+
+
 def test_create_alert_returns_500_when_queueing_fails(monkeypatch):
     def raise_queue_error(input_data):
         raise create_alert.alert_service.AnalysisRequestError("Failed to queue analysis job")

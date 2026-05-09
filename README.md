@@ -88,6 +88,103 @@ Using SQS decouples API latency from background analysis work, which keeps the R
 
 Real AI model integration will be added in a later phase. The current implementation still uses the deterministic summary flow introduced in earlier phases.
 
+## Phase 7: Deployment
+
+Phase 7 focuses on building, deploying, testing, and cleaning up the serverless stack with AWS SAM.
+
+### Build
+
+Run the SAM build from the project root:
+
+```bash
+sam build
+```
+
+### Deploy
+
+Deploy the stack with the guided flow:
+
+```bash
+sam deploy --guided
+```
+
+Recommended values:
+
+- Stack name: `ai-fraud-triage-dev`
+- AWS Region: `ap-northeast-1`
+
+After deployment, SAM will print the CloudFormation outputs. You can also find the deployed API URL by checking the `ApiEndpoint` output in the terminal output, in the CloudFormation console, or by running:
+
+```bash
+aws cloudformation describe-stacks \
+  --stack-name ai-fraud-triage-dev \
+  --region ap-northeast-1
+```
+
+### API Test Commands
+
+Set the API base URL from the `ApiEndpoint` output:
+
+```bash
+API_ENDPOINT="https://your-api-id.execute-api.ap-northeast-1.amazonaws.com/Prod/"
+```
+
+Create an alert:
+
+```bash
+curl -X POST "${API_ENDPOINT}alerts" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "customerId": "cust-001",
+    "accountId": "acct-001",
+    "alertType": "SUSPICIOUS_TRANSFER",
+    "amount": 125000,
+    "country": "JP",
+    "historicalAverageAmount": 25000,
+    "isNewBeneficiary": true,
+    "transactionCountLastHour": 4
+  }'
+```
+
+List alerts:
+
+```bash
+curl "${API_ENDPOINT}alerts"
+```
+
+Get one alert by ID:
+
+```bash
+curl "${API_ENDPOINT}alerts/<alertId>"
+```
+
+Requeue analysis for an alert:
+
+```bash
+curl -X POST "${API_ENDPOINT}alerts/<alertId>/analyze"
+```
+
+### Verification
+
+After sending requests, verify the system in AWS:
+
+- DynamoDB:
+  Check the `FraudAlertsTable` items and confirm the alert record uses `PK = ALERT#{alertId}` and `SK = METADATA`.
+- SQS:
+  Check `FraudAnalysisQueue` for queued analysis jobs and confirm failed messages would move to `FraudAnalysisDeadLetterQueue`.
+- Lambda:
+  Review `CreateAlertFunction`, `ListAlertsFunction`, `GetAlertFunction`, `AnalyzeAlertFunction`, and `AnalysisWorkerFunction` in the Lambda console.
+- CloudWatch:
+  Open the CloudWatch Logs log groups for the API Lambdas and the worker Lambda to confirm successful requests, queued jobs, and background analysis execution.
+
+### Cleanup
+
+When you are finished testing, delete the stack:
+
+```bash
+sam delete --stack-name ai-fraud-triage-dev --region ap-northeast-1
+```
+
 ### Next Steps
 
 - Deploy to AWS
