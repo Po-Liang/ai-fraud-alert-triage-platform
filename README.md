@@ -30,6 +30,7 @@ The MVP will include:
 - Lambda handlers for REST API layer
 - AWS SAM infrastructure template
 - SQS async analysis worker
+- OpenAI secret integration with AWS Secrets Manager
 - Unit tests for risk scoring
 
 ## Phase 2: DynamoDB Repository Layer
@@ -184,6 +185,87 @@ When you are finished testing, delete the stack:
 ```bash
 sam delete --stack-name ai-fraud-triage-dev --region ap-northeast-1
 ```
+
+## Phase 8: OpenAI Secret Integration
+
+Phase 8 adds secure OpenAI API key retrieval through AWS Secrets Manager for the asynchronous analysis worker.
+
+Secrets Manager is used instead of storing the raw API key in Lambda environment variables because it reduces direct secret exposure, supports centralized secret management, and is a safer foundation for future rotation and access auditing. In this design, Lambda receives only the `OPENAI_SECRET_NAME` reference, not the actual API key value.
+
+At runtime, `AnalysisWorkerFunction` reads the `OPENAI_SECRET_NAME` environment variable and uses the dedicated `secrets_service` to load the secret from AWS Secrets Manager. The secret is cached in memory within the Lambda execution environment to reduce repeated Secrets Manager calls during warm invocations.
+
+Safe AWS CLI example with placeholder values only:
+
+```bash
+aws secretsmanager create-secret \
+  --name ai-fraud-triage/openai-api-key \
+  --secret-string '{"OPENAI_API_KEY":"REPLACE_WITH_REAL_KEY"}' \
+  --region ap-northeast-1
+```
+
+```bash
+sam deploy --guided \
+  --parameter-overrides \
+    OpenAISecretName=ai-fraud-triage/openai-api-key \
+    OpenAIModel=gpt-4o-mini
+```
+
+Least-privilege IAM is preserved:
+
+- only `AnalysisWorkerFunction` has `secretsmanager:GetSecretValue`
+- API handler Lambdas do not have permission to read the OpenAI secret
+- API handlers also do not receive the OpenAI secret name in their environment variables
+
+The AI model is used only to generate:
+
+- `aiSummary`
+- `recommendedActions`
+
+It does not decide fraud. Deterministic risk scoring remains the source of `riskLevel` and `riskScore`, and the AI output is limited to cautious investigation support language.
+
+Recommended production improvements for a real deployment:
+
+- Enable secret rotation
+- Protect the secret with a customer-managed KMS key
+- Monitor Secrets Manager access and Lambda errors in CloudWatch
+- Add client-side caching to further reduce repeated secret lookups and external API overhead
+
+### CloudWatch Verification For OpenAI Summary Path
+
+After deploying, you can confirm whether the async worker actually attempted the OpenAI path by checking the `AnalysisWorkerFunction` CloudWatch logs.
+
+Expected worker and service log sequence:
+
+- `analysis_worker_started`
+- `sqs_record_received`
+- `analysis_started_for_alert`
+- `alert_service_analyze_started`
+- `risk_scoring_completed`
+- `ai_summary_generation_started`
+- `ai_summary_service_called`
+- `openai_secret_lookup_started`
+
+If the OpenAI path is used successfully, you should then see:
+
+- `openai_secret_lookup_succeeded`
+- `openai_api_call_attempted`
+- `openai_api_call_succeeded`
+- `ai_summary_result_returned ... mode=openai`
+- `ai_summary_generation_completed`
+- `analysis_result_update_completed`
+- `analysis_completed_for_alert`
+
+If the deterministic fallback path is used instead, you should see:
+
+- `ai_summary_fallback_used`
+- `ai_summary_result_returned ... mode=fallback`
+
+This makes it easier to distinguish:
+
+- secret lookup problems
+- OpenAI API call failures
+- fallback summary behavior
+- successful background analysis completion
 
 ### Next Steps
 

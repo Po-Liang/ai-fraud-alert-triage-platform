@@ -26,6 +26,33 @@ def test_analysis_worker_processes_valid_records(monkeypatch):
     assert result == {"batchItemFailures": []}
 
 
+def test_analysis_worker_calls_alert_service_analyze_alert(monkeypatch):
+    called = {"alertId": None}
+
+    def fake_analyze_alert(alert_id):
+        called["alertId"] = alert_id
+
+    monkeypatch.setattr(
+        analysis_worker.alert_service,
+        "analyze_alert",
+        fake_analyze_alert,
+    )
+
+    analysis_worker.lambda_handler(
+        {
+            "Records": [
+                {
+                    "messageId": "msg-call-check",
+                    "body": '{"alertId": "alert-call-check"}',
+                }
+            ]
+        },
+        None,
+    )
+
+    assert called["alertId"] == "alert-call-check"
+
+
 def test_analysis_worker_marks_invalid_json_as_failed(monkeypatch):
     monkeypatch.setattr(
         analysis_worker.alert_service,

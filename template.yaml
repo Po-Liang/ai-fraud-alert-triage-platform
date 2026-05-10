@@ -2,6 +2,16 @@ AWSTemplateFormatVersion: "2010-09-09"
 Transform: AWS::Serverless-2016-10-31
 Description: AI-powered fraud alert triage platform infrastructure for Phase 5.
 
+Parameters:
+  OpenAISecretName:
+    Type: String
+    Default: ai-fraud-triage/openai-api-key
+    Description: Secrets Manager secret name that stores the OpenAI API key.
+  OpenAIModel:
+    Type: String
+    Default: gpt-4o-mini
+    Description: OpenAI model name used by the async analysis worker.
+
 Globals:
   Function:
     Runtime: python3.12
@@ -157,6 +167,8 @@ Resources:
       Environment:
         Variables:
           ALERTS_TABLE_NAME: !Ref FraudAlertsTable
+          OPENAI_SECRET_NAME: !Ref OpenAISecretName
+          OPENAI_MODEL: !Ref OpenAIModel
       Policies:
         - Statement:
             - Effect: Allow
@@ -164,6 +176,10 @@ Resources:
                 - dynamodb:GetItem
                 - dynamodb:UpdateItem
               Resource: !GetAtt FraudAlertsTable.Arn
+            - Effect: Allow
+              Action:
+                - secretsmanager:GetSecretValue
+              Resource: !Sub "arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${OpenAISecretName}*"
       Events:
         AnalysisQueueEvent:
           Type: SQS
