@@ -343,6 +343,48 @@ def test_analyze_alert_coordinates_repository_and_analysis_services(monkeypatch)
     update_analysis_result_mock.assert_called_once_with("alert-123", result)
 
 
+def test_analyze_alert_calls_ai_summary_service(monkeypatch):
+    monkeypatch.setattr(
+        alert_service.alert_repository,
+        "get_alert",
+        lambda alert_id: {"alertId": alert_id, "country": "JP"},
+    )
+    monkeypatch.setattr(
+        alert_service.alert_repository,
+        "update_status",
+        Mock(),
+    )
+    monkeypatch.setattr(
+        alert_service.alert_repository,
+        "update_analysis_result",
+        Mock(),
+    )
+    monkeypatch.setattr(
+        alert_service.risk_scoring_service,
+        "calculate_risk_score",
+        lambda alert: {"riskScore": 10, "riskLevel": "LOW", "signals": []},
+    )
+
+    summary_called = {"called": False}
+
+    def fake_summary(alert, risk_result):
+        summary_called["called"] = True
+        return {
+            "aiSummary": "summary",
+            "recommendedActions": ["action"],
+        }
+
+    monkeypatch.setattr(
+        alert_service.ai_summary_service,
+        "generate_investigation_summary",
+        fake_summary,
+    )
+
+    alert_service.analyze_alert("alert-123")
+
+    assert summary_called["called"] is True
+
+
 def test_analyze_alert_translates_repository_not_found_during_status_update(monkeypatch):
     alert = {
         "alertId": "alert-123",
