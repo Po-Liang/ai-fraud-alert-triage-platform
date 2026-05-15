@@ -267,6 +267,16 @@ This makes it easier to distinguish:
 - fallback summary behavior
 - successful background analysis completion
 
+## Phase 9: GitHub Actions CI
+
+Phase 9 adds a simple GitHub Actions workflow for continuous integration.
+
+The workflow runs on pushes to `main` and pull requests targeting `main`. It sets up Python 3.12, installs the runtime and development test dependencies, runs `python -m pytest`, runs `sam validate`, and then runs `sam build` as a separate step so test, template, and build failures are easy to identify.
+
+The test suite in CI continues to mock AWS clients, Secrets Manager access, and OpenAI HTTP calls, so GitHub Actions does not need AWS credentials or a real OpenAI API key. Placeholder environment variables such as `OPENAI_SECRET_NAME=test/openai-api-key` and `OPENAI_MODEL=test-model` are used only to support safe test execution.
+
+Deployment is still performed manually with AWS SAM. The real OpenAI API key remains in AWS Secrets Manager in the deployed AWS environment and is not stored in GitHub Actions.
+
 ### Next Steps
 
 - Deploy to AWS
