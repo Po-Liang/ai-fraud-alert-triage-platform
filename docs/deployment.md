@@ -1,84 +1,113 @@
 # Deployment Guide
 
-This document explains how to build, deploy, verify, troubleshoot, and clean up the AWS SAM stack for the AI Fraud Alert Triage Platform.
-
-## Overview
-
-The current stack includes:
-
-- API Gateway REST API
-- Lambda handlers for create, list, get, and requeue analysis
-- SQS queue and dead-letter queue for asynchronous analysis
-- SQS-triggered analysis worker Lambda
-- DynamoDB table for fraud alerts
-
-Recommended deployment settings:
-
-- Stack name: `ai-fraud-triage-dev`
-- Region: `ap-northeast-1`
-
 ## Prerequisites
 
-Before deploying, make sure you have:
+- Python 3.12
+- AWS CLI
+- AWS SAM CLI
+- An AWS account with permission to deploy:
+  - Lambda
+  - API Gateway
+  - DynamoDB
+  - SQS
+  - IAM
+  - CloudFormation
+  - Secrets Manager
 
-- AWS CLI installed and configured
-- AWS SAM CLI installed
-- Valid AWS credentials for the target account
-- Permission to create CloudFormation, Lambda, API Gateway, DynamoDB, SQS, IAM, and CloudWatch resources
+## Check Local Tooling
 
-Check your current AWS identity:
+Check AWS CLI:
 
 ```bash
-aws sts get-caller-identity
+aws --version
 ```
 
-Check SAM:
+Check SAM CLI:
 
 ```bash
 sam --version
 ```
 
-## Build
+Confirm the AWS identity that will deploy the stack:
 
-From the project root, run:
+```bash
+aws sts get-caller-identity
+```
+
+## Validate The Project Locally
+
+Run tests:
+
+```bash
+python3 -m pytest -q
+```
+
+Validate the SAM template:
+
+```bash
+sam validate
+```
+
+Build the application:
 
 ```bash
 sam build
 ```
 
-Expected result:
+## Create The OpenAI Secret In AWS Secrets Manager
 
-- `.aws-sam/build/` is created
-- SAM reports `Build Succeeded`
+The worker Lambda expects an OpenAI secret name, not a raw API key in environment variables.
 
-## Deploy
+Example using placeholder structure:
 
-Run the guided deployment:
+```bash
+aws secretsmanager create-secret \
+  --name ai-fraud-triage/openai-api-key \
+  --secret-string '{"OPENAI_API_KEY":"REPLACE_WITH_REAL_KEY"}' \
+  --region ap-northeast-1
+```
+
+You can also update an existing secret:
+
+```bash
+aws secretsmanager put-secret-value \
+  --secret-id ai-fraud-triage/openai-api-key \
+  --secret-string '{"OPENAI_API_KEY":"REPLACE_WITH_REAL_KEY"}' \
+  --region ap-northeast-1
+```
+
+Do not commit real secret values to the repository.
+
+## Deploy With AWS SAM
+
+Use guided deployment:
 
 ```bash
 sam deploy --guided
 ```
 
-Recommended values during the guided flow:
+Recommended values:
 
-- Stack Name: `ai-fraud-triage-dev`
+- Stack name: `ai-fraud-triage-dev`
 - AWS Region: `ap-northeast-1`
-- Confirm changes before deploy: `Y`
-- Allow SAM CLI IAM role creation: `Y`
-- Disable rollback: `N`
-- Save arguments to configuration file: `Y`
+- Confirm changes before deploy: your preference
+- Save arguments to `samconfig.toml`: yes
 
-After a successful deploy, SAM prints stack outputs including the API endpoint.
+When prompted for parameter overrides, use values such as:
 
-## Find the API Endpoint
+- `OpenAISecretName=ai-fraud-triage/openai-api-key`
+- `OpenAIModel=gpt-4o-mini`
 
-You can retrieve the API endpoint from the deploy output or with CloudFormation:
+## Find The API Endpoint
+
+After deployment, check the CloudFormation output named `ApiEndpoint`.
+
+Example:
 
 ```bash
 aws cloudformation describe-stacks \
   --stack-name ai-fraud-triage-dev \
-  --region ap-northeast-1 \
-  --query "Stacks[0].Outputs"
+  --region ap-northeast-1
 ```
 
 Set it locally:
@@ -87,9 +116,9 @@ Set it locally:
 API_ENDPOINT="https://your-api-id.execute-api.ap-northeast-1.amazonaws.com/Prod/"
 ```
 
-## Test the API
+## Test The API With `curl`
 
-### Create an alert
+Create an alert:
 
 ```bash
 curl -X POST "${API_ENDPOINT}alerts" \
@@ -100,219 +129,90 @@ curl -X POST "${API_ENDPOINT}alerts" \
     "alertType": "SUSPICIOUS_TRANSFER",
     "amount": 125000,
     "country": "JP",
+    "description": "Large outbound transfer to a new beneficiary",
     "historicalAverageAmount": 25000,
     "isNewBeneficiary": true,
     "transactionCountLastHour": 4
   }'
 ```
 
-Expected behavior:
-
-- API returns quickly
-- alert is created with `PENDING_ANALYSIS`
-- analysis job is sent to SQS
-
-### List alerts
+List alerts:
 
 ```bash
 curl "${API_ENDPOINT}alerts"
 ```
 
-### Get a single alert
+Get an alert:
 
 ```bash
 curl "${API_ENDPOINT}alerts/<alertId>"
 ```
 
-### Requeue analysis
+Requeue analysis:
 
 ```bash
 curl -X POST "${API_ENDPOINT}alerts/<alertId>/analyze"
 ```
 
-Expected behavior:
+## Check CloudWatch Logs
 
-- API returns `202`
-- analysis job is queued again
+Useful log groups:
 
-## Verify the Stack in AWS
-
-### DynamoDB
-
-Open `FraudAlertsTable` and confirm:
-
-- records are written successfully
-- primary key shape is:
-  - `PK = ALERT#{alertId}`
-  - `SK = METADATA`
-- `status`, `createdAt`, `updatedAt`, and analysis result fields are present as expected
-
-### SQS
-
-Open:
-
-- `FraudAnalysisQueue`
-- `FraudAnalysisDeadLetterQueue`
-
-Verify:
-
-- messages appear in the main queue after create or requeue calls
-- messages are consumed by `AnalysisWorkerFunction`
-- failed messages can move to the DLQ after repeated processing failures
-
-### Lambda
-
-Verify these functions exist and are healthy:
-
-- `CreateAlertFunction`
-- `ListAlertsFunction`
-- `GetAlertFunction`
-- `AnalyzeAlertFunction`
-- `AnalysisWorkerFunction`
-
-Review:
-
-- function configuration
-- environment variables
-- recent invocations
-
-### CloudWatch Logs
-
-Check the log groups for:
-
-- API Lambda functions
-- `AnalysisWorkerFunction`
-
-Useful things to confirm:
-
-- request parsing is successful
-- queue messages are sent
-- worker receives records from SQS
-- `alert_service.analyze_alert` completes successfully
-- no repeated runtime or IAM errors appear
-
-## Troubleshooting
-
-### Lambda import error
+- `/aws/lambda/CreateAlertFunction`
+- `/aws/lambda/ListAlertsFunction`
+- `/aws/lambda/GetAlertFunction`
+- `/aws/lambda/AnalyzeAlertFunction`
+- `/aws/lambda/AnalysisWorkerFunction`
 
 Example:
 
-`Runtime.ImportModuleError: Unable to import module ...`
-
-Likely causes:
-
-- build artifacts are stale
-- a runtime dependency is missing
-- a compiled dependency was built for the wrong platform
-
-What to do:
-
-1. Rebuild the project:
-
 ```bash
-sam build
+aws logs tail /aws/lambda/AnalysisWorkerFunction --follow --region ap-northeast-1
 ```
 
-2. Redeploy:
+Helpful worker log markers:
+
+- `analysis_worker_started`
+- `analysis_started_for_alert`
+- `risk_scoring_completed`
+- `ai_summary_service_called`
+- `openai_api_call_attempted`
+- `ai_summary_fallback_used`
+- `analysis_completed_for_alert`
+
+## Verify AWS Resources
+
+Check DynamoDB:
+
+- confirm the alert exists in `FraudAlertsTable`
+- confirm `PK = ALERT#{alertId}`
+- confirm `SK = METADATA`
+
+Check SQS:
+
+- `FraudAnalysisQueue` should receive analysis jobs
+- failed messages should eventually move to `FraudAnalysisDeadLetterQueue`
+
+Check Lambda:
+
+- API Lambdas should return quickly
+- `AnalysisWorkerFunction` should handle background analysis
+
+## Delete The Stack
+
+When finished:
 
 ```bash
-sam deploy
+sam delete --stack-name ai-fraud-triage-dev --region ap-northeast-1
 ```
 
-3. If the error involves compiled Python packages, remove them from the Lambda runtime path or rebuild them in a Lambda-compatible environment.
-
-For this MVP, the runtime path avoids Pydantic to prevent Linux packaging issues.
-
-### IAM AccessDenied
-
-Examples:
-
-- Lambda cannot write to DynamoDB
-- Lambda cannot send to SQS
-- worker cannot read from its event source
-
-What to check:
-
-1. Open the failing Lambda in the AWS console.
-2. Review its execution role.
-3. Confirm the role has the permissions defined in `template.yaml`.
-4. Check CloudWatch logs for the specific denied action and resource ARN.
-
-Common examples:
-
-- `dynamodb:PutItem` for create flow
-- `dynamodb:GetItem` and `dynamodb:UpdateItem` for analysis flow
-- `sqs:SendMessage` for queueing analysis jobs
-
-After changing IAM in the template:
+If you no longer need the secret, delete it separately. This is most appropriate for short-lived demo environments:
 
 ```bash
-sam build
-sam deploy
-```
-
-### SQS worker not processing messages
-
-Symptoms:
-
-- messages remain in `FraudAnalysisQueue`
-- worker logs show no invocations
-
-What to check:
-
-1. Confirm `AnalysisWorkerFunction` exists.
-2. Confirm the SQS event source mapping was created.
-3. Confirm the queue ARN in the template matches the event source.
-4. Confirm the worker Lambda has no runtime import or permission error.
-5. Check CloudWatch Logs for `AnalysisWorkerFunction`.
-
-If messages move to the DLQ:
-
-1. Inspect the original message body.
-2. Check whether `alertId` exists and is valid JSON.
-3. Review worker logs for batch item failure details.
-
-### CloudFormation rollback
-
-Symptoms:
-
-- stack status becomes `ROLLBACK_IN_PROGRESS` or `ROLLBACK_COMPLETE`
-
-Common causes:
-
-- IAM role creation blocked
-- resource name collision
-- insufficient account permissions
-- template change causing invalid configuration
-
-What to do:
-
-1. Open the CloudFormation stack events.
-2. Find the first failed resource.
-3. Read the exact error message.
-4. Fix the root cause.
-5. Redeploy.
-
-Helpful command:
-
-```bash
-aws cloudformation describe-stack-events \
-  --stack-name ai-fraud-triage-dev \
+aws secretsmanager delete-secret \
+  --secret-id ai-fraud-triage/openai-api-key \
+  --force-delete-without-recovery \
   --region ap-northeast-1
 ```
 
-If a previous failed stack must be removed:
-
-```bash
-sam delete --stack-name ai-fraud-triage-dev --region ap-northeast-1
-```
-
-## Cleanup
-
-When you are finished testing:
-
-```bash
-sam delete --stack-name ai-fraud-triage-dev --region ap-northeast-1
-```
-
-This removes the CloudFormation stack and the resources managed by SAM.
+Use that last command carefully in any environment where secret recovery matters.
