@@ -41,6 +41,7 @@ Detailed documentation:
 - [Security Notes](docs/security.md)
 - [Interview Notes](docs/interview-notes.md)
 - [Interview Demo: AI Insurance Claims Review Copilot](docs/interview-demo-dltx.md)
+- [Frontend Demo Guide](docs/frontend-demo.md)
 - [Future Improvements](docs/future-improvements.md)
 
 ## Interview Demo: AI Insurance Claims Review Copilot
@@ -48,6 +49,27 @@ Detailed documentation:
 For interviews with 第一ライフテクノクロス株式会社, this project can be presented as an insurance operations demo called `AI Insurance Claims Review Copilot`. Phase A adds fictional insurance claim cases and internal guidance samples to prepare a future story around AI-OCR output, RAG-style knowledge support, and claim review assistance. The current demo uses fake data only, does not implement real OCR, and does not automate claim payment decisions; the intended value is reviewer productivity, consistency, and safer human-in-the-loop AI support.
 
 See [docs/interview-demo-dltx.md](docs/interview-demo-dltx.md) for the full demo story.
+
+### Frontend Interview Demo
+
+The repository includes a minimal Vite + React + TypeScript dashboard for interview demos.
+
+Run it locally:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+To connect it to the deployed backend, set `VITE_API_BASE_URL` before starting the dev server:
+
+```bash
+VITE_API_BASE_URL="https://your-api-id.execute-api.ap-northeast-1.amazonaws.com/Prod" npm run dev
+```
+
+If `VITE_API_BASE_URL` is not set, the dashboard uses mock demo responses so it can still be shown locally. See [docs/frontend-demo.md](docs/frontend-demo.md) for setup, mock mode, connected mode, and security notes.
+The frontend does not store OpenAI keys or AWS credentials, and the demo should only be used with fictional claim text.
 
 ### `POST /rag/query`
 

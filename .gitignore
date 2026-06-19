@@ -6,3 +6,8 @@ __pycache__/
 .DS_Store
 *.pyc
 .pip-cache/
+frontend/node_modules/
+frontend/dist/
+frontend/tsconfig.tsbuildinfo
+frontend/.env
+frontend/.env.local
