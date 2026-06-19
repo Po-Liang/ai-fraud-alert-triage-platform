@@ -2,7 +2,7 @@ import json
 from typing import Any
 
 DEFAULT_HEADERS = {
-    "Content-Type": "application/json",
+    "Content-Type": "application/json; charset=utf-8",
 }
 
 
@@ -10,7 +10,7 @@ def _json_response(payload: Any, status_code: int) -> dict:
     return {
         "statusCode": status_code,
         "headers": DEFAULT_HEADERS.copy(),
-        "body": json.dumps(payload),
+        "body": json.dumps(payload, ensure_ascii=False),
     }
 
 

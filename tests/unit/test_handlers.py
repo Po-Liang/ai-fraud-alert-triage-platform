@@ -26,7 +26,7 @@ def test_create_alert_returns_201_with_created_alert(monkeypatch):
     )
 
     assert response["statusCode"] == 201
-    assert response["headers"]["Content-Type"] == "application/json"
+    assert response["headers"]["Content-Type"] == "application/json; charset=utf-8"
     assert json.loads(response["body"])["alertId"] == "alert-123"
 
 
@@ -44,7 +44,7 @@ def test_create_alert_returns_400_for_invalid_json():
     assert json.loads(response["body"]) == {
         "message": "Request body must be valid JSON"
     }
-    assert response["headers"]["Content-Type"] == "application/json"
+    assert response["headers"]["Content-Type"] == "application/json; charset=utf-8"
 
 
 def test_create_alert_returns_400_for_non_object_json():

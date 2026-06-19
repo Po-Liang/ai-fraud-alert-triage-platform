@@ -49,6 +49,37 @@ For interviews with 第一ライフテクノクロス株式会社, this project 
 
 See [docs/interview-demo-dltx.md](docs/interview-demo-dltx.md) for the full demo story.
 
+### `POST /rag/query`
+
+The interview demo includes a simple local-guidance RAG MVP for insurance claim review questions. It retrieves relevant fake internal guidance from `src/data/insurance_claim_guidance.json`, generates an answer, and returns the sources used.
+
+Sample request:
+
+```bash
+curl -X POST "${API_ENDPOINT}rag/query" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "question": "入院給付金の審査では、どの書類や日付を確認すべきですか？"
+  }'
+```
+
+Sample response:
+
+```json
+{
+  "answer": "参照したデモ社内ガイダンスに基づくと、請求書、入院証明書、診断書に記載された入院開始日と退院日を照合してください。日付差異や判読困難な記載がある場合は、人間の審査担当者が原本を確認してください。\n\nAIは最終的な請求承認、否認、支払い可否を判断しません。",
+  "sources": [
+    {
+      "id": "GUIDE-DEMO-001",
+      "title": "入院給付金審査ガイド",
+      "section": "入院期間確認"
+    }
+  ]
+}
+```
+
+This endpoint is intentionally simple: it uses keyword-overlap retrieval against local fake guidance documents. It is designed to demonstrate the RAG support pattern, not production-grade retrieval. AI supports human reviewers and does not make final claim payment decisions.
+
 ## Tech Stack
 
 - Python 3.12

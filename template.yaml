@@ -189,6 +189,30 @@ Resources:
             FunctionResponseTypes:
               - ReportBatchItemFailures
 
+  RagQueryFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: makefile
+    Properties:
+      Handler: src.handlers.rag_query.lambda_handler
+      Environment:
+        Variables:
+          OPENAI_SECRET_NAME: !Ref OpenAISecretName
+          OPENAI_MODEL: !Ref OpenAIModel
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - secretsmanager:GetSecretValue
+              Resource: !Sub "arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${OpenAISecretName}*"
+      Events:
+        RagQueryApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FraudTriageApi
+            Path: /rag/query
+            Method: post
+
 Outputs:
   ApiEndpoint:
     Description: API Gateway endpoint URL for the Fraud Triage API.

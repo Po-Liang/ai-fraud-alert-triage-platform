@@ -147,6 +147,39 @@ Phase A adds:
 
 These additions are documentation and sample data only.
 
+## Phase B: RAG Insurance Knowledge Search
+
+Phase B adds a working RAG-style endpoint:
+
+- `POST /rag/query`
+
+The flow is:
+
+1. A user asks an insurance claim review question.
+2. `RagQueryFunction` parses the API Gateway request.
+3. `rag_service` loads fake internal guidance from `src/data/insurance_claim_guidance.json`.
+4. The service retrieves the top relevant guidance documents using simple keyword overlap.
+5. The service builds a grounded prompt using only retrieved context.
+6. If OpenAI is available through Secrets Manager, the service generates an answer from the retrieved context.
+7. If OpenAI is unavailable or the API call fails, the service returns a deterministic fallback answer from the retrieved guidance.
+8. The response includes both `answer` and `sources`.
+
+Sources are returned so reviewers can see which demo guidance documents influenced the answer. This is important for an internal knowledge support system because reviewers need traceability rather than an unsupported AI response.
+
+This maps directly to `社内ナレッジ検索／RAG型業務支援システム`: the local fake guidance file represents internal knowledge, retrieval selects relevant guidance, and the answer is grounded in those sources.
+
+AI still does not make final claim decisions. It can summarize guidance and suggest what to check, but claim approval, denial, payment, customer communication, and escalation remain human reviewer responsibilities.
+
+Future production improvements for this RAG path include:
+
+- embeddings
+- vector database retrieval
+- document-level access control
+- audit logs for retrieved context and generated answers
+- answer quality evaluation
+- retrieval quality evaluation
+- source versioning and approval workflows
+
 ## What Is Intentionally Simulated
 
 The following are intentionally simulated or deferred:
