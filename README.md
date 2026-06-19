@@ -40,7 +40,14 @@ Detailed documentation:
 - [Deployment Guide](docs/deployment.md)
 - [Security Notes](docs/security.md)
 - [Interview Notes](docs/interview-notes.md)
+- [Interview Demo: AI Insurance Claims Review Copilot](docs/interview-demo-dltx.md)
 - [Future Improvements](docs/future-improvements.md)
+
+## Interview Demo: AI Insurance Claims Review Copilot
+
+For interviews with 第一ライフテクノクロス株式会社, this project can be presented as an insurance operations demo called `AI Insurance Claims Review Copilot`. Phase A adds fictional insurance claim cases and internal guidance samples to prepare a future story around AI-OCR output, RAG-style knowledge support, and claim review assistance. The current demo uses fake data only, does not implement real OCR, and does not automate claim payment decisions; the intended value is reviewer productivity, consistency, and safer human-in-the-loop AI support.
+
+See [docs/interview-demo-dltx.md](docs/interview-demo-dltx.md) for the full demo story.
 
 ## Tech Stack
 
