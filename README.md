@@ -104,6 +104,7 @@ Sample response:
     "claimType": "入院給付金",
     "hospitalizationPeriod": "2026年4月3日から2026年4月9日まで",
     "treatmentDate": null,
+    "eventDateOrPeriod": "2026年4月3日から2026年4月9日まで",
     "diagnosis": "急性虫垂炎",
     "submittedDocuments": [
       "給付金請求書",

@@ -201,6 +201,7 @@ The extracted fields include:
 - `claimType`
 - `hospitalizationPeriod`
 - `treatmentDate`
+- `eventDateOrPeriod`
 - `diagnosis`
 - `submittedDocuments`
 

@@ -18,6 +18,7 @@ def test_analyze_claim_text_returns_extracted_fields_summary_checklist_and_gover
         "claimType": "入院給付金",
         "hospitalizationPeriod": "2026年4月3日から2026年4月9日まで",
         "treatmentDate": None,
+        "eventDateOrPeriod": "2026年4月3日から2026年4月9日まで",
         "diagnosis": "急性虫垂炎",
         "submittedDocuments": [
             "給付金請求書",
@@ -45,6 +46,35 @@ def test_analyze_claim_text_extracts_treatment_date_for_surgery_claim():
     assert result["claimType"] == "手術給付金"
     assert result["extractedFields"]["treatmentDate"] == "2026年4月18日"
     assert result["extractedFields"]["hospitalizationPeriod"] is None
+    assert result["extractedFields"]["eventDateOrPeriod"] == "2026年4月18日"
+
+
+def test_analyze_claim_text_extracts_claimant_name_from_applicant_label():
+    claim_text = (
+        "申請者: 山田太郎。請求種別: 入院給付金。"
+        "入院期間: 2026年5月1日から2026年5月10日。"
+        "診断名: 肺炎。提出書類: 診断書、入院証明書、請求書。"
+    )
+
+    result = claim_review_service.analyze_claim_text(claim_text)
+
+    assert result["extractedFields"]["claimantName"] == "山田太郎"
+
+
+def test_analyze_claim_text_extracts_claimant_name_from_claimant_label_with_full_width_colon():
+    claim_text = "請求人：佐藤花子。請求種別：入院給付金。診断名：肺炎。"
+
+    result = claim_review_service.analyze_claim_text(claim_text)
+
+    assert result["extractedFields"]["claimantName"] == "佐藤花子"
+
+
+def test_analyze_claim_text_extracts_claimant_name_from_insured_label():
+    claim_text = "被保険者: 鈴木一郎。請求種別: 手術給付金。手術日: 2026年5月2日。"
+
+    result = claim_review_service.analyze_claim_text(claim_text)
+
+    assert result["extractedFields"]["claimantName"] == "鈴木一郎"
 
 
 def test_analyze_claim_text_parses_submitted_documents_when_present():

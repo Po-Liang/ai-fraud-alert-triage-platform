@@ -54,7 +54,7 @@ def analyze_claim_text(claim_text: str) -> dict[str, Any]:
 
 
 def _extract_fields(claim_text: str) -> dict[str, Any]:
-    return {
+    extracted_fields = {
         "claimantName": _extract_claimant_name(claim_text),
         "claimType": _extract_claim_type(claim_text),
         "hospitalizationPeriod": _extract_hospitalization_period(claim_text),
@@ -63,11 +63,19 @@ def _extract_fields(claim_text: str) -> dict[str, Any]:
         "submittedDocuments": _extract_submitted_documents(claim_text),
     }
 
+    extracted_fields["eventDateOrPeriod"] = (
+        extracted_fields["hospitalizationPeriod"]
+        or extracted_fields["treatmentDate"]
+        or None
+    )
+
+    return extracted_fields
+
 
 def _extract_claimant_name(claim_text: str) -> str | None:
     return _extract_labeled_value(
         claim_text,
-        labels=("請求人", " claimantName", "氏名", "契約者", "受取人"),
+        labels=("申請者", "請求人", "被保険者", "claimantName", "氏名", "契約者", "受取人"),
     )
 
 
