@@ -80,6 +80,51 @@ Sample response:
 
 This endpoint is intentionally simple: it uses keyword-overlap retrieval against local fake guidance documents. It is designed to demonstrate the RAG support pattern, not production-grade retrieval. AI supports human reviewers and does not make final claim payment decisions.
 
+### `POST /claims/analyze`
+
+The interview demo also includes a deterministic claim document analysis endpoint. It accepts OCR-output-like text, extracts basic claim review fields where possible, generates a concise summary, and returns a checklist for human reviewers.
+
+Sample request:
+
+```bash
+curl -X POST "${API_ENDPOINT}claims/analyze" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "claimText": "請求人: 架空 花子\n請求種別: 入院給付金\n診断名: 急性虫垂炎\n入院期間: 2026年4月3日から2026年4月9日まで\n提出書類: 給付金請求書、入院証明書、診断書、本人確認書類"
+  }'
+```
+
+Sample response:
+
+```json
+{
+  "claimType": "入院給付金",
+  "extractedFields": {
+    "claimantName": "架空 花子",
+    "claimType": "入院給付金",
+    "hospitalizationPeriod": "2026年4月3日から2026年4月9日まで",
+    "treatmentDate": null,
+    "diagnosis": "急性虫垂炎",
+    "submittedDocuments": [
+      "給付金請求書",
+      "入院証明書",
+      "診断書",
+      "本人確認書類"
+    ]
+  },
+  "summary": "入院給付金のOCR出力テキストを確認しました。診断・傷病情報は「急性虫垂炎」、期間または処置日は「2026年4月3日から2026年4月9日まで」として抽出されています。抽出結果は原本書類と照合して確認してください。",
+  "reviewChecklist": [
+    "OCR抽出結果を原本書類と照合する",
+    "請求人、被保険者、受取人、契約者の関係を確認する",
+    "契約内容と給付対象条件を確認する",
+    "AI出力を参考情報として扱い、最終判断は人間の審査担当者が行う"
+  ],
+  "governanceNotice": "AI supports human reviewers and does not make final payment decisions. A human claim reviewer must verify original documents, contract terms, and applicable business rules before deciding claim payment handling."
+}
+```
+
+This endpoint simulates processing text that could have been extracted by OCR. Real OCR, file upload, and document image processing are not implemented in this phase. AI and deterministic extraction support human reviewers and do not make final claim payment decisions.
+
 ## Tech Stack
 
 - Python 3.12

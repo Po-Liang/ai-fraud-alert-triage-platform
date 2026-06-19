@@ -213,6 +213,20 @@ Resources:
             Path: /rag/query
             Method: post
 
+  AnalyzeClaimFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: makefile
+    Properties:
+      Handler: src.handlers.analyze_claim.lambda_handler
+      Events:
+        AnalyzeClaimApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FraudTriageApi
+            Path: /claims/analyze
+            Method: post
+
 Outputs:
   ApiEndpoint:
     Description: API Gateway endpoint URL for the Fraud Triage API.

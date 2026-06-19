@@ -180,15 +180,46 @@ Future production improvements for this RAG path include:
 - retrieval quality evaluation
 - source versioning and approval workflows
 
+## Phase C: Claim Document Analysis Endpoint
+
+Phase C adds a deterministic claim document analysis endpoint:
+
+- `POST /claims/analyze`
+
+The flow is:
+
+1. A user submits OCR-output-like claim text.
+2. `AnalyzeClaimFunction` parses the API Gateway request.
+3. `claim_review_service` extracts simple fields with deterministic rules.
+4. The service generates a concise claim summary.
+5. The service generates a review checklist for human claim reviewers.
+6. The response includes a governance notice.
+
+The extracted fields include:
+
+- `claimantName`
+- `claimType`
+- `hospitalizationPeriod`
+- `treatmentDate`
+- `diagnosis`
+- `submittedDocuments`
+
+This maps to `生成AI × AI-OCR／書類処理システム` because it demonstrates what can happen after OCR has converted claim documents into text. Real OCR is not implemented in this phase. File upload, image processing, S3, Textract, and Azure Document Intelligence are intentionally out of scope.
+
+This also maps to `保険金・給付金支払い／審査支援AI` because the endpoint helps organize information that claim reviewers need before deciding next actions. It can summarize OCR-output-like text and create a checklist, but it does not approve claims, reject claims, calculate payable amounts, or make final payment decisions.
+
+The human-in-the-loop boundary is explicit: AI and deterministic extraction support reviewers, while human reviewers remain responsible for checking original documents, contract terms, latest business rules, customer communication, escalation, and final payment handling.
+
 ## What Is Intentionally Simulated
 
 The following are intentionally simulated or deferred:
 
 - real OCR
 - claim document image processing
+- claim document analysis with real production records
 - policy administration system integration
 - claims payment system integration
-- RAG retrieval
+- production-grade RAG retrieval
 - vector search
 - automated claim approval
 - automated claim denial
