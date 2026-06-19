@@ -5,9 +5,9 @@ import re
 from typing import Any
 
 GOVERNANCE_NOTICE = (
-    "AI supports human reviewers and does not make final payment decisions. "
-    "A human claim reviewer must verify original documents, contract terms, "
-    "and applicable business rules before deciding claim payment handling."
+    "AIの出力は審査担当者の確認を支援するものであり、"
+    "支払い可否の最終判断は人間が行います。"
+    "原本書類、契約内容、社内ルールを必ず確認したうえで判断してください。"
 )
 
 KNOWN_CLAIM_TYPES = (

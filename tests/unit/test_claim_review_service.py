@@ -30,7 +30,7 @@ def test_analyze_claim_text_returns_extracted_fields_summary_checklist_and_gover
     assert "入院給付金" in result["summary"]
     assert "急性虫垂炎" in result["summary"]
     assert result["reviewChecklist"]
-    assert "does not make final payment decisions" in result["governanceNotice"]
+    assert "支払い可否の最終判断は人間が行います" in result["governanceNotice"]
 
 
 def test_analyze_claim_text_extracts_treatment_date_for_surgery_claim():

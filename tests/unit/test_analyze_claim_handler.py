@@ -19,7 +19,7 @@ def test_analyze_claim_returns_analysis_result(monkeypatch):
             },
             "summary": f"summary: {claim_text}",
             "reviewChecklist": ["原本書類を確認する"],
-            "governanceNotice": "AI supports human reviewers and does not make final payment decisions.",
+            "governanceNotice": "AIの出力は審査担当者の確認を支援するものであり、支払い可否の最終判断は人間が行います。",
         },
     )
 
@@ -32,7 +32,7 @@ def test_analyze_claim_returns_analysis_result(monkeypatch):
     assert response["statusCode"] == 200
     assert body["claimType"] == "入院給付金"
     assert body["extractedFields"]["claimantName"] == "架空 花子"
-    assert "does not make final payment decisions" in body["governanceNotice"]
+    assert "支払い可否の最終判断は人間が行います" in body["governanceNotice"]
 
 
 def test_analyze_claim_returns_400_when_body_is_missing():
