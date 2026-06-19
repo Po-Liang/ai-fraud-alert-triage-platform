@@ -1,0 +1,96 @@
+[
+  {
+    "claimId": "CLM-DEMO-0001",
+    "claimType": "入院給付金",
+    "claimantName": "架空 花子",
+    "policyId": "POL-DEMO-1001",
+    "submittedDocuments": [
+      "給付金請求書",
+      "入院証明書",
+      "診断書",
+      "本人確認書類"
+    ],
+    "claimText": "契約者より、急性虫垂炎による入院給付金の請求。入院期間は2026年4月3日から2026年4月9日までの7日間。診断書には手術なし、退院後の通院予定ありと記載。請求書の住所と本人確認書類の住所は一致している。",
+    "status": "REVIEW_PENDING",
+    "reviewPriority": "MEDIUM",
+    "createdAt": "2026-05-01T09:30:00Z"
+  },
+  {
+    "claimId": "CLM-DEMO-0002",
+    "claimType": "手術給付金",
+    "claimantName": "架空 健一",
+    "policyId": "POL-DEMO-1002",
+    "submittedDocuments": [
+      "給付金請求書",
+      "手術証明書",
+      "診療明細書",
+      "本人確認書類"
+    ],
+    "claimText": "胆石症に対する腹腔鏡下胆嚢摘出術の手術給付金請求。手術日は2026年4月18日。診療明細書には手術名と入院期間の記載があるが、給付金請求書の手術日欄が空欄のため確認が必要。",
+    "status": "DOCUMENT_REVIEW",
+    "reviewPriority": "HIGH",
+    "createdAt": "2026-05-02T11:15:00Z"
+  },
+  {
+    "claimId": "CLM-DEMO-0003",
+    "claimType": "死亡保険金",
+    "claimantName": "架空 美咲",
+    "policyId": "POL-DEMO-1003",
+    "submittedDocuments": [
+      "保険金請求書",
+      "死亡診断書",
+      "受取人本人確認書類",
+      "戸籍関係書類"
+    ],
+    "claimText": "被保険者死亡に伴う死亡保険金請求。死亡診断書には病死と記載。受取人の本人確認書類は提出済み。戸籍関係書類の一部について発行日が古く、最新書類の提出要否を確認する必要がある。",
+    "status": "ESCALATION_REVIEW",
+    "reviewPriority": "HIGH",
+    "createdAt": "2026-05-03T14:05:00Z"
+  },
+  {
+    "claimId": "CLM-DEMO-0004",
+    "claimType": "書類不備対応",
+    "claimantName": "架空 直人",
+    "policyId": "POL-DEMO-1004",
+    "submittedDocuments": [
+      "給付金請求書",
+      "診断書"
+    ],
+    "claimText": "腰椎椎間板ヘルニアによる入院給付金請求。診断書は提出済みだが、本人確認書類と入院期間を確認できる証明書が未提出。請求書の連絡先電話番号に一部判読しづらい箇所がある。",
+    "status": "MISSING_DOCUMENTS",
+    "reviewPriority": "MEDIUM",
+    "createdAt": "2026-05-04T10:40:00Z"
+  },
+  {
+    "claimId": "CLM-DEMO-0005",
+    "claimType": "入院給付金",
+    "claimantName": "架空 彩",
+    "policyId": "POL-DEMO-1005",
+    "submittedDocuments": [
+      "給付金請求書",
+      "入院証明書",
+      "診断書",
+      "領収書"
+    ],
+    "claimText": "肺炎による入院給付金請求。入院証明書の入院開始日は2026年3月20日、退院日は2026年3月25日。診断書の退院日が2026年3月24日と読めるため、日付差異の確認が必要。",
+    "status": "REVIEW_PENDING",
+    "reviewPriority": "LOW",
+    "createdAt": "2026-05-05T08:20:00Z"
+  },
+  {
+    "claimId": "CLM-DEMO-0006",
+    "claimType": "手術給付金",
+    "claimantName": "架空 翔太",
+    "policyId": "POL-DEMO-1006",
+    "submittedDocuments": [
+      "給付金請求書",
+      "手術証明書",
+      "診療明細書",
+      "契約内容確認書"
+    ],
+    "claimText": "白内障手術に関する手術給付金請求。左右両眼の手術日が別日に記載されている。契約内容確認書では給付対象条件の確認が必要。本人確認書類は未提出のため追加確認が必要。",
+    "status": "DOCUMENT_REVIEW",
+    "reviewPriority": "MEDIUM",
+    "createdAt": "2026-05-06T13:10:00Z"
+  }
+]

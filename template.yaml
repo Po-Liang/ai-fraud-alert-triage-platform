@@ -25,6 +25,50 @@ Resources:
     Properties:
       Name: FraudTriageApi
       StageName: Prod
+      Cors:
+        AllowOrigin: "'*'"
+        AllowHeaders: "'Content-Type,Authorization'"
+        AllowMethods: "'GET,POST,OPTIONS'"
+      MergeDefinitions: true
+      DefinitionBody:
+        swagger: "2.0"
+        info:
+          title: FraudTriageApi
+          version: "1.0"
+        paths:
+          /alerts:
+            options: &CorsPreflightOptions
+              summary: CORS preflight support
+              responses:
+                "200":
+                  description: CORS preflight response
+                  headers:
+                    Access-Control-Allow-Headers:
+                      type: string
+                    Access-Control-Allow-Methods:
+                      type: string
+                    Access-Control-Allow-Origin:
+                      type: string
+              x-amazon-apigateway-integration:
+                type: mock
+                requestTemplates:
+                  application/json: '{"statusCode": 200}'
+                responses:
+                  default:
+                    statusCode: "200"
+                    responseParameters:
+                      method.response.header.Access-Control-Allow-Headers: "'Content-Type,Authorization'"
+                      method.response.header.Access-Control-Allow-Methods: "'GET,POST,OPTIONS'"
+                      method.response.header.Access-Control-Allow-Origin: "'*'"
+                passthroughBehavior: when_no_match
+          /alerts/{alertId}:
+            options: *CorsPreflightOptions
+          /alerts/{alertId}/analyze:
+            options: *CorsPreflightOptions
+          /claims/analyze:
+            options: *CorsPreflightOptions
+          /rag/query:
+            options: *CorsPreflightOptions
 
   FraudAlertsTable:
     Type: AWS::DynamoDB::Table
@@ -188,6 +232,44 @@ Resources:
             BatchSize: 10
             FunctionResponseTypes:
               - ReportBatchItemFailures
+
+  RagQueryFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: makefile
+    Properties:
+      Handler: src.handlers.rag_query.lambda_handler
+      Environment:
+        Variables:
+          OPENAI_SECRET_NAME: !Ref OpenAISecretName
+          OPENAI_MODEL: !Ref OpenAIModel
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - secretsmanager:GetSecretValue
+              Resource: !Sub "arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${OpenAISecretName}*"
+      Events:
+        RagQueryApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FraudTriageApi
+            Path: /rag/query
+            Method: post
+
+  AnalyzeClaimFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: makefile
+    Properties:
+      Handler: src.handlers.analyze_claim.lambda_handler
+      Events:
+        AnalyzeClaimApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FraudTriageApi
+            Path: /claims/analyze
+            Method: post
 
 Outputs:
   ApiEndpoint:

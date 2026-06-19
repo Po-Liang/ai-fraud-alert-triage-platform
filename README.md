@@ -40,7 +40,115 @@ Detailed documentation:
 - [Deployment Guide](docs/deployment.md)
 - [Security Notes](docs/security.md)
 - [Interview Notes](docs/interview-notes.md)
+- [Interview Demo: AI Insurance Claims Review Copilot](docs/interview-demo-dltx.md)
+- [Japanese Interview Script](docs/japanese-interview-script-dltx.md)
+- [Frontend Demo Guide](docs/frontend-demo.md)
 - [Future Improvements](docs/future-improvements.md)
+
+## Interview Demo: AI Insurance Claims Review Copilot
+
+For interviews with 第一ライフテクノクロス株式会社, this project can be presented as an insurance operations demo called `AI Insurance Claims Review Copilot`. Phase A adds fictional insurance claim cases and internal guidance samples to prepare a future story around AI-OCR output, RAG-style knowledge support, and claim review assistance. The current demo uses fake data only, does not implement real OCR, and does not automate claim payment decisions; the intended value is reviewer productivity, consistency, and safer human-in-the-loop AI support.
+
+See [docs/interview-demo-dltx.md](docs/interview-demo-dltx.md) for the full demo story.
+For a Japanese interview talk track, see [docs/japanese-interview-script-dltx.md](docs/japanese-interview-script-dltx.md).
+
+### Frontend Interview Demo
+
+The repository includes a minimal Vite + React + TypeScript dashboard for interview demos.
+
+Run it locally:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+To connect it to the deployed backend, set `VITE_API_BASE_URL` before starting the dev server:
+
+```bash
+VITE_API_BASE_URL="https://your-api-id.execute-api.ap-northeast-1.amazonaws.com/Prod" npm run dev
+```
+
+If `VITE_API_BASE_URL` is not set, the dashboard uses mock demo responses so it can still be shown locally. See [docs/frontend-demo.md](docs/frontend-demo.md) for setup, mock mode, connected mode, and security notes.
+The frontend does not store OpenAI keys or AWS credentials, and the demo should only be used with fictional claim text.
+
+### `POST /rag/query`
+
+The interview demo includes a simple local-guidance RAG MVP for insurance claim review questions. It retrieves relevant fake internal guidance from `src/data/insurance_claim_guidance.json`, generates an answer, and returns the sources used.
+
+Sample request:
+
+```bash
+curl -X POST "${API_ENDPOINT}rag/query" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "question": "入院給付金の審査では、どの書類や日付を確認すべきですか？"
+  }'
+```
+
+Sample response:
+
+```json
+{
+  "answer": "参照したデモ社内ガイダンスに基づくと、請求書、入院証明書、診断書に記載された入院開始日と退院日を照合してください。日付差異や判読困難な記載がある場合は、人間の審査担当者が原本を確認してください。\n\nAIは最終的な請求承認、否認、支払い可否を判断しません。",
+  "sources": [
+    {
+      "id": "GUIDE-DEMO-001",
+      "title": "入院給付金審査ガイド",
+      "section": "入院期間確認"
+    }
+  ]
+}
+```
+
+This endpoint is intentionally simple: it uses keyword-overlap retrieval against local fake guidance documents. It is designed to demonstrate the RAG support pattern, not production-grade retrieval. AI supports human reviewers and does not make final claim payment decisions.
+
+### `POST /claims/analyze`
+
+The interview demo also includes a deterministic claim document analysis endpoint. It accepts OCR-output-like text, extracts basic claim review fields where possible, generates a concise summary, and returns a checklist for human reviewers.
+
+Sample request:
+
+```bash
+curl -X POST "${API_ENDPOINT}claims/analyze" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "claimText": "請求人: 架空 花子\n請求種別: 入院給付金\n診断名: 急性虫垂炎\n入院期間: 2026年4月3日から2026年4月9日まで\n提出書類: 給付金請求書、入院証明書、診断書、本人確認書類"
+  }'
+```
+
+Sample response:
+
+```json
+{
+  "claimType": "入院給付金",
+  "extractedFields": {
+    "claimantName": "架空 花子",
+    "claimType": "入院給付金",
+    "hospitalizationPeriod": "2026年4月3日から2026年4月9日まで",
+    "treatmentDate": null,
+    "eventDateOrPeriod": "2026年4月3日から2026年4月9日まで",
+    "diagnosis": "急性虫垂炎",
+    "submittedDocuments": [
+      "給付金請求書",
+      "入院証明書",
+      "診断書",
+      "本人確認書類"
+    ]
+  },
+  "summary": "入院給付金のOCR出力テキストを確認しました。診断・傷病情報は「急性虫垂炎」、期間または処置日は「2026年4月3日から2026年4月9日まで」として抽出されています。抽出結果は原本書類と照合して確認してください。",
+  "reviewChecklist": [
+    "OCR抽出結果を原本書類と照合する",
+    "請求人、被保険者、受取人、契約者の関係を確認する",
+    "契約内容と給付対象条件を確認する",
+    "AI出力を参考情報として扱い、最終判断は人間の審査担当者が行う"
+  ],
+  "governanceNotice": "AIの出力は審査担当者の確認を支援するものであり、支払い可否の最終判断は人間が行います。原本書類、契約内容、社内ルールを必ず確認したうえで判断してください。"
+}
+```
+
+This endpoint simulates processing text that could have been extracted by OCR. Real OCR, file upload, and document image processing are not implemented in this phase. AI and deterministic extraction support human reviewers and do not make final claim payment decisions.
 
 ## Tech Stack
 
