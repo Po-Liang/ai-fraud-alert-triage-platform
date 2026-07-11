@@ -69,7 +69,7 @@ def test_answer_question_uses_openai_when_available(monkeypatch):
 
     def mock_urlopen(request, timeout):
         assert request.full_url == rag_service.OPENAI_CHAT_COMPLETIONS_URL
-        assert timeout == 15
+        assert timeout == rag_service.OPENAI_REQUEST_TIMEOUT_SECONDS
         payload = json.loads(request.data.decode("utf-8"))
         assert payload["model"] == "test-model"
         assert "Authorization" in request.headers
@@ -120,6 +120,35 @@ def test_answer_question_falls_back_when_openai_call_fails(monkeypatch):
     assert "参照したデモ社内ガイダンス" in result["answer"]
     assert "AIは最終的な請求承認、否認、支払い可否を判断しません" in result["answer"]
     assert result["sources"]
+
+
+def test_answer_question_falls_back_when_secret_lookup_fails(monkeypatch):
+    def raise_error():
+        raise RuntimeError("secret lookup failed")
+
+    monkeypatch.setattr(
+        rag_service.secrets_service,
+        "get_openai_api_key",
+        raise_error,
+    )
+
+    result = rag_service.answer_question(
+        "入院給付金の審査で確認すべき項目は何ですか？"
+    )
+
+    assert "参照したデモ社内ガイダンス" in result["answer"]
+    assert result["sources"]
+
+
+def test_packaged_guidance_path_is_module_relative():
+    expected_path = (
+        rag_service.Path(rag_service.__file__).resolve().parents[1]
+        / "data"
+        / "insurance_claim_guidance.json"
+    )
+
+    assert rag_service.KNOWLEDGE_BASE_PATH == expected_path
+    assert rag_service.KNOWLEDGE_BASE_PATH.is_file()
 
 
 def test_answer_question_rejects_empty_question():

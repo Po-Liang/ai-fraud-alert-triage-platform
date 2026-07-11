@@ -16,6 +16,7 @@ KNOWLEDGE_BASE_PATH = (
 )
 OPENAI_CHAT_COMPLETIONS_URL = "https://api.openai.com/v1/chat/completions"
 DEFAULT_OPENAI_MODEL = "gpt-4o-mini"
+OPENAI_REQUEST_TIMEOUT_SECONDS = 5
 MAX_RETRIEVED_DOCUMENTS = 3
 
 logger = logging.getLogger(__name__)
@@ -31,7 +32,12 @@ def answer_question(question: str) -> dict[str, Any]:
     retrieved_documents = retrieve_relevant_documents(normalized_question)
     sources = [_source_from_document(document) for document in retrieved_documents]
 
-    api_key = secrets_service.get_openai_api_key()
+    try:
+        api_key = secrets_service.get_openai_api_key()
+    except Exception:
+        logger.warning("rag_secret_lookup_failed", exc_info=True)
+        api_key = None
+
     if not api_key:
         logger.info("rag_fallback_used reason=missing_openai_api_key")
         return {
@@ -49,7 +55,7 @@ def answer_question(question: str) -> dict[str, Any]:
             model=model,
         )
     except Exception:
-        logger.warning("rag_fallback_used reason=openai_call_failed")
+        logger.warning("rag_fallback_used reason=openai_call_failed", exc_info=True)
         answer = _build_fallback_answer(normalized_question, retrieved_documents)
 
     return {
@@ -93,13 +99,16 @@ def retrieve_relevant_documents(question: str) -> list[dict[str, str]]:
 
 @lru_cache(maxsize=1)
 def _load_guidance_documents() -> tuple[dict[str, str], ...]:
+    logger.info("rag_guidance_load_started path=%s", KNOWLEDGE_BASE_PATH)
     with KNOWLEDGE_BASE_PATH.open(encoding="utf-8") as guidance_file:
         documents = json.load(guidance_file)
 
     if not isinstance(documents, list):
         raise ValueError("insurance claim guidance must be a list")
 
-    return tuple(_validate_document(document) for document in documents)
+    validated_documents = tuple(_validate_document(document) for document in documents)
+    logger.info("rag_guidance_load_completed documentCount=%s", len(validated_documents))
+    return validated_documents
 
 
 def _validate_document(document: Any) -> dict[str, str]:
@@ -207,7 +216,10 @@ def _generate_openai_answer(
         method="POST",
     )
 
-    with urllib.request.urlopen(request, timeout=15) as response:
+    with urllib.request.urlopen(
+        request,
+        timeout=OPENAI_REQUEST_TIMEOUT_SECONDS,
+    ) as response:
         status_code = getattr(response, "status", None)
         if status_code is None and hasattr(response, "getcode"):
             status_code = response.getcode()
