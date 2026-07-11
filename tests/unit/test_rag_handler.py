@@ -37,6 +37,47 @@ def test_rag_query_returns_answer_and_sources(monkeypatch):
     }
 
 
+def test_rag_query_returns_japanese_fallback_with_sources(monkeypatch):
+    monkeypatch.setattr(
+        rag_query.rag_service.secrets_service,
+        "get_openai_api_key",
+        lambda: None,
+    )
+
+    response = rag_query.lambda_handler(
+        {
+            "body": json.dumps(
+                {"question": "入院給付金の審査で確認すべき項目は何ですか？"},
+                ensure_ascii=False,
+            )
+        },
+        None,
+    )
+    body = json.loads(response["body"])
+
+    assert response["statusCode"] == 200
+    assert "入院給付金" in body["answer"]
+    assert body["sources"]
+    assert "入院給付金" in response["body"]
+    assert "\\u5165\\u9662" not in response["body"]
+
+
+def test_rag_query_returns_safe_cors_error_when_service_fails(monkeypatch):
+    def raise_error(question):
+        raise RuntimeError("internal detail")
+
+    monkeypatch.setattr(rag_query.rag_service, "answer_question", raise_error)
+
+    response = rag_query.lambda_handler(
+        {"body": json.dumps({"question": "審査項目は何ですか？"})},
+        None,
+    )
+
+    assert response["statusCode"] == 500
+    assert response["headers"]["Access-Control-Allow-Origin"] == "*"
+    assert "internal detail" not in response["body"]
+
+
 def test_rag_query_returns_400_when_body_is_missing():
     response = rag_query.lambda_handler({}, None)
 

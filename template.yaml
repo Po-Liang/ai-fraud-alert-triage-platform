@@ -239,6 +239,7 @@ Resources:
       BuildMethod: makefile
     Properties:
       Handler: src.handlers.rag_query.lambda_handler
+      Timeout: 15
       Environment:
         Variables:
           OPENAI_SECRET_NAME: !Ref OpenAISecretName

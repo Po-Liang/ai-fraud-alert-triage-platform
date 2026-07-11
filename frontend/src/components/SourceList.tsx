@@ -6,7 +6,7 @@ type SourceListProps = {
 
 export function SourceList({ sources }: SourceListProps) {
   if (sources.length === 0) {
-    return <p className="muted">No sources returned yet.</p>;
+    return <p className="muted">参照元はまだ表示されていません。</p>;
   }
 
   return (

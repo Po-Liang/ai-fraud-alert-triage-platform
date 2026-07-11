@@ -14,10 +14,10 @@ const sampleClaimText =
 const sampleQuestion = "入院給付金の審査で確認すべき項目は何ですか？";
 
 const workflowSteps = [
-  "OCR-like claim text",
-  "Deterministic extraction",
-  "RAG guidance search",
-  "Human reviewer decision",
+  "AI-OCRで抽出したテキスト",
+  "ルールベースの項目抽出",
+  "RAGガイドライン検索",
+  "審査担当者による最終判断",
 ];
 
 export function App() {
@@ -37,7 +37,7 @@ export function App() {
     try {
       setAnalysis(await analyzeClaim(claimText));
     } catch (error) {
-      setClaimError(error instanceof Error ? error.message : "Claim analysis failed.");
+      setClaimError(error instanceof Error ? error.message : "請求内容の分析に失敗しました。");
     } finally {
       setIsAnalyzing(false);
     }
@@ -50,7 +50,7 @@ export function App() {
     try {
       setRagResponse(await queryRag(question));
     } catch (error) {
-      setRagError(error instanceof Error ? error.message : "RAG query failed.");
+      setRagError(error instanceof Error ? error.message : "ガイドライン検索に失敗しました。");
     } finally {
       setIsAsking(false);
     }
@@ -60,11 +60,15 @@ export function App() {
     <main>
       <header className="app-header">
         <div>
-          <p className="eyebrow">Interview demo</p>
+          <p className="eyebrow">面接用PoCデモ</p>
           <h1>AI Insurance Claims Review Copilot</h1>
           <p className="subtitle">
-            A demo for insurance claim document analysis, RAG knowledge search,
-            and human-in-the-loop review.
+            保険金・給付金の審査業務を想定したPoCデモです。請求書類テキストの整理、
+            確認チェックリストの作成、社内ガイドラインの検索を支援します。
+          </p>
+          <p className="context-note">
+            このデモは、AI-OCRで読み取った後のテキストを入力として扱います。
+            OCR機能自体は実装しておらず、抽出済みテキストを審査業務でどう活用するかに焦点を当てています。
           </p>
         </div>
         <div className={`mode-pill ${isMockMode ? "mock" : "connected"}`}>
@@ -73,11 +77,13 @@ export function App() {
           ) : (
             <CheckCircle2 size={16} aria-hidden="true" />
           )}
-          {isMockMode ? "Demo mode: using mock data" : "Connected mode: using backend API"}
+          {isMockMode
+            ? "デモモード：モックデータを使用中"
+            : "接続モード：バックエンドAPIを使用中"}
         </div>
       </header>
 
-      <ol className="workflow-strip" aria-label="Demo workflow">
+      <ol className="workflow-strip" aria-label="デモの処理フロー">
         {workflowSteps.map((step, index) => (
           <li key={step}>
             <span>{index + 1}</span>
@@ -108,7 +114,6 @@ export function App() {
       {ragError && <p className="error-banner">{ragError}</p>}
       <RagCopilotPanel
         question={question}
-        sampleQuestion={sampleQuestion}
         response={ragResponse}
         isLoading={isAsking}
         onChange={setQuestion}

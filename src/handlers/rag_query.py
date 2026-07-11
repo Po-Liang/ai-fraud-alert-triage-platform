@@ -1,8 +1,12 @@
 import json
+import logging
 from json import JSONDecodeError
 
 from src.services import rag_service
 from src.utils.response import error_response, success_response
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 
 def lambda_handler(event, context):
@@ -24,6 +28,13 @@ def lambda_handler(event, context):
     if not question:
         return error_response("question is required", status_code=400)
 
-    result = rag_service.answer_question(question)
+    try:
+        result = rag_service.answer_question(question)
+    except Exception:
+        logger.exception("rag_query_failed")
+        return error_response(
+            "ガイドライン検索を完了できませんでした。しばらくしてから再度お試しください。",
+            status_code=500,
+        )
 
     return success_response(result)

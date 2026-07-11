@@ -9,9 +9,12 @@ const defaultNotice =
 
 export function GovernanceNotice({ notice = defaultNotice }: GovernanceNoticeProps) {
   return (
-    <section className="governance-strip" aria-label="Governance notice">
+    <section className="governance-strip" aria-label="ガバナンス上の注意点">
       <ShieldCheck size={20} aria-hidden="true" />
-      <p>{notice}</p>
+      <div>
+        <p className="eyebrow">ガバナンス上の注意点</p>
+        <p>{notice}</p>
+      </div>
     </section>
   );
 }
