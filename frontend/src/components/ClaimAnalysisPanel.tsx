@@ -27,9 +27,9 @@ export function ClaimAnalysisPanel({ analysis, isLoading }: ClaimAnalysisPanelPr
   if (isLoading) {
     return (
       <section className="panel">
-        <p className="eyebrow">Document analysis</p>
-        <h2>Extracted Fields</h2>
-        <div className="skeleton-stack" aria-label="Loading claim analysis">
+        <p className="eyebrow">請求書類の分析</p>
+        <h2>抽出項目</h2>
+        <div className="skeleton-stack" aria-label="請求内容を分析中">
           <span />
           <span />
           <span />
@@ -42,17 +42,17 @@ export function ClaimAnalysisPanel({ analysis, isLoading }: ClaimAnalysisPanelPr
   if (!analysis) {
     return (
       <section className="panel empty-panel">
-        <p className="eyebrow">Document analysis</p>
-        <h2>Extracted Fields</h2>
-        <p>Run analysis to review extracted claim information.</p>
+        <p className="eyebrow">請求書類の分析</p>
+        <h2>抽出項目</h2>
+        <p>「請求内容を分析」を押すと、抽出された請求情報を確認できます。</p>
       </section>
     );
   }
 
   return (
     <section className="panel">
-      <p className="eyebrow">Document analysis</p>
-      <h2>Extracted Fields</h2>
+      <p className="eyebrow">請求書類の分析</p>
+      <h2>抽出項目</h2>
       <dl className="field-grid">
         {(Object.keys(fieldLabels) as Array<keyof ExtractedFields>).map((fieldName) => (
           <div key={fieldName}>
@@ -62,7 +62,7 @@ export function ClaimAnalysisPanel({ analysis, isLoading }: ClaimAnalysisPanelPr
         ))}
       </dl>
       <div className="summary-box">
-        <p className="eyebrow">Summary</p>
+        <p className="eyebrow">要約</p>
         <p>{analysis.summary}</p>
       </div>
     </section>

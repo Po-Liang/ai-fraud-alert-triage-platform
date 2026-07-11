@@ -67,8 +67,8 @@ async function postJson<T>(path: string, body: unknown): Promise<T> {
   } catch (error) {
     throw new Error(
       error instanceof TypeError
-        ? "Unable to reach the backend API. Check VITE_API_BASE_URL, deployment status, and CORS settings."
-        : "Backend API request failed.",
+        ? "バックエンドAPIに接続できませんでした。API URL、デプロイ状況、CORS設定を確認してください。"
+        : "バックエンドAPIへのリクエストに失敗しました。",
     );
   }
 
@@ -100,7 +100,7 @@ function getErrorMessage(payload: unknown, status: number): string {
     return payload.message;
   }
 
-  return `Request failed with ${status}`;
+  return `リクエストに失敗しました（HTTP ${status}）。`;
 }
 
 export async function analyzeClaim(claimText: string): Promise<ClaimAnalysisResponse> {

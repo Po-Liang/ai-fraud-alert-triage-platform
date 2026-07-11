@@ -66,7 +66,7 @@ If `VITE_API_BASE_URL` is not set, the frontend uses built-in mock responses.
 The UI shows:
 
 ```text
-Demo mode: using mock data
+デモモード：モックデータを使用中
 ```
 
 This is useful for interview walkthroughs where the deployed backend is unavailable or network access is limited.
@@ -77,7 +77,7 @@ The mock responses are intentionally fictional and should be treated as sample U
 If `VITE_API_BASE_URL` is set, the UI shows:
 
 ```text
-Connected mode: using backend API
+接続モード：バックエンドAPIを使用中
 ```
 
 In this mode, the dashboard calls the deployed SAM backend.

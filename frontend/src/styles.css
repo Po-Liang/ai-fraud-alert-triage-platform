@@ -72,6 +72,13 @@ main {
   font-size: 1rem;
 }
 
+.context-note {
+  max-width: 760px;
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
 .mode-pill {
   display: inline-flex;
   align-items: center;
@@ -145,6 +152,11 @@ main {
   margin: 0;
 }
 
+.governance-strip .eyebrow {
+  margin-bottom: 3px;
+  color: var(--green-dark);
+}
+
 .dashboard-grid {
   display: grid;
   grid-template-columns: minmax(320px, 0.95fr) minmax(360px, 1.05fr);
@@ -198,6 +210,14 @@ main {
   background: #fbfaf3;
   color: var(--ink);
   outline: none;
+}
+
+.input-label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 700;
 }
 
 .input-panel textarea:focus,
