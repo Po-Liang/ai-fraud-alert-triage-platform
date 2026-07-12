@@ -10,22 +10,62 @@
 
 ## 実装済みアーキテクチャ
 
-```text
-React / TypeScript interview UI
-  ├─ POST /alerts
-  │    └─ Lambda → DynamoDB → SQS
-  │                           └─ analysis worker
-  │                                ├─ deterministic risk scoring
-  │                                ├─ OpenAI summary or deterministic fallback
-  │                                └─ DynamoDB status/result update
-  ├─ GET /alerts/{alertId}  （非同期ステータスのポーリング）
-  ├─ POST /rag/query        （ローカル文書検索＋OpenAIまたは決定的フォールバック）
-  └─ POST /alerts/{alertId}/review
-       └─ DynamoDB reviewHistory へ担当者判断を追記
+```mermaid
+%%{init: {"theme":"base","themeVariables":{"fontFamily":"Arial, sans-serif","fontSize":"18px","lineColor":"#475569","textColor":"#0f172a","background":"#ffffff"},"flowchart":{"curve":"basis","nodeSpacing":36,"rankSpacing":52}}}%%
+flowchart LR
+    Analyst(["不正調査担当者"]) --> UI["NTT DATA デモ画面<br/>React / TypeScript"]
+    UI -->|"アラート登録・状態確認"| API["Amazon API Gateway"]
 
-SQS repeated failures → Dead-letter queue
-OpenAI credential → AWS Secrets Manager
+    subgraph Analysis["1　非同期リスク分析"]
+        API --> Create["Alert Lambda"]
+        Create --> DB[("DynamoDB<br/>アラート・判断履歴")]
+        Create --> Queue["SQS 分析キュー"]
+        Queue --> Worker["Analysis Worker"]
+        Worker --> Rules["説明可能な<br/>ルールスコア"]
+        Worker --> Summary["AI 調査要約"]
+        Worker --> DB
+        Queue -. "繰り返し失敗" .-> DLQ["Dead-letter Queue"]
+    end
+
+    subgraph Evidence["2　判断根拠の取得"]
+        UI -->|"根拠を検索"| RAG["Evidence Retrieval<br/>Lambda"]
+        RAG --> Guide[("架空の不正対策<br/>ガイドライン")]
+        RAG --> Summary
+    end
+
+    subgraph AI["3　生成 AI 接続"]
+        Summary --> Secrets["AWS Secrets Manager"]
+        Summary --> OpenAI["OpenAI API<br/>失敗時は決定的フォールバック"]
+    end
+
+    subgraph Human["4　Human-in-the-loop"]
+        UI -->|"承認・再分析・エスカレーション"| Review["Human Review<br/>Lambda"]
+        Review -->|"判断理由を保存"| DB
+    end
+
+    classDef person fill:#dbeafe,stroke:#2563eb,color:#0f172a,stroke-width:2px,font-size:18px,font-weight:bold;
+    classDef interface fill:#e0f2fe,stroke:#0284c7,color:#0f172a,stroke-width:2px,font-size:18px,font-weight:bold;
+    classDef process fill:#dcfce7,stroke:#16a34a,color:#052e16,stroke-width:2px,font-size:17px,font-weight:bold;
+    classDef intelligence fill:#f3e8ff,stroke:#9333ea,color:#3b0764,stroke-width:2px,font-size:17px,font-weight:bold;
+    classDef human fill:#fef3c7,stroke:#d97706,color:#451a03,stroke-width:2px,font-size:17px,font-weight:bold;
+    classDef data fill:#f1f5f9,stroke:#64748b,color:#0f172a,stroke-width:2px,font-size:17px,font-weight:bold;
+    classDef failure fill:#fee2e2,stroke:#dc2626,color:#450a0a,stroke-width:2px,font-size:17px,font-weight:bold;
+
+    class Analyst person;
+    class UI,API interface;
+    class Create,Queue,Worker,Rules,RAG process;
+    class Summary,Secrets,OpenAI intelligence;
+    class Review human;
+    class DB,Guide data;
+    class DLQ failure;
+
+    style Analysis fill:#f0fdf4,stroke:#86efac,stroke-width:2px,color:#14532d
+    style Evidence fill:#f0fdf4,stroke:#86efac,stroke-width:2px,color:#14532d
+    style AI fill:#faf5ff,stroke:#d8b4fe,stroke-width:2px,color:#581c87
+    style Human fill:#fffbeb,stroke:#fcd34d,stroke-width:2px,color:#78350f
 ```
+
+色は役割を示す。青は利用者と入口、緑は決定的なアプリケーション処理、紫は生成AI、黄は人による判断、灰色は保存データ、赤は失敗経路である。
 
 AWS上の実装は API Gateway、Lambda、DynamoDB、SQS、DLQ、Secrets Manager、SAMを再利用している。新しいエージェントフレームワーク、ベクトルデータベース、ワークフローサービスは追加していない。
 
