@@ -44,6 +44,7 @@ Detailed documentation:
 - [Japanese Interview Script](docs/japanese-interview-script-dltx.md)
 - [Frontend Demo Guide](docs/frontend-demo.md)
 - [Future Improvements](docs/future-improvements.md)
+- [NTT DATA Agent Platform Demo](docs/nttdata-agent-platform-demo.md)
 
 ## Interview Demo: AI Insurance Claims Review Copilot
 
@@ -61,13 +62,15 @@ Run it locally:
 ```bash
 cd frontend
 npm install
-npm run dev
+npm run dev:insurance
 ```
+
+The insurance demo runs on port `5177`. The NTT DATA fraud-investigation demo runs separately on port `5176` with `npm run dev:nttdata`; neither page includes a cross-company switcher.
 
 To connect it to the deployed backend, set `VITE_API_BASE_URL` before starting the dev server:
 
 ```bash
-VITE_API_BASE_URL="https://your-api-id.execute-api.ap-northeast-1.amazonaws.com/Prod" npm run dev
+VITE_API_BASE_URL="https://your-api-id.execute-api.ap-northeast-1.amazonaws.com/Prod" npm run dev:insurance
 ```
 
 If `VITE_API_BASE_URL` is not set, the dashboard uses mock demo responses so it can still be shown locally. See [docs/frontend-demo.md](docs/frontend-demo.md) for setup, mock mode, connected mode, and security notes.

@@ -158,3 +158,90 @@ def test_answer_question_rejects_empty_question():
         assert str(error) == "question is required"
     else:
         raise AssertionError("Expected ValueError")
+
+
+def test_fraud_retrieval_returns_real_demo_evidence():
+    documents = rag_service.retrieve_relevant_documents(
+        "新規受取人への高額送金では何を確認しますか？",
+        knowledge_base="fraud_alerts",
+    )
+
+    assert documents
+    assert documents[0]["id"].startswith("FRAUD-GUIDE-DEMO-")
+    assert "面接デモ用" in documents[0]["content"]
+
+
+def test_fraud_answer_exposes_grounding_metadata_and_exact_excerpt(monkeypatch):
+    monkeypatch.setattr(
+        rag_service.secrets_service,
+        "get_openai_api_key",
+        lambda: None,
+    )
+
+    result = rag_service.answer_question(
+        "短時間の連続取引で確認すべき項目は？",
+        knowledge_base="fraud_alerts",
+    )
+
+    assert result["metadata"] == {
+        "knowledgeBase": "fraud_alerts",
+        "retrievalStatus": "COMPLETED",
+        "groundingStatus": "GROUNDED",
+        "generationMode": "DETERMINISTIC_FALLBACK",
+    }
+    assert result["sources"]
+    source = result["sources"][0]
+    matching_document = next(
+        document
+        for document in rag_service._load_guidance_documents("fraud_alerts")
+        if document["id"] == source["id"]
+    )
+    assert source["excerpt"] == matching_document["content"]
+    assert source["sourceType"] == "demo_internal_guideline"
+    assert "最終判断は人間が行います" in result["answer"]
+    assert "取引記録、顧客情報" in result["answer"]
+    assert "原本書類、契約情報" not in result["answer"]
+
+
+def test_fraud_answer_reports_no_evidence_without_inventing_sources(monkeypatch):
+    monkeypatch.setattr(
+        rag_service.secrets_service,
+        "get_openai_api_key",
+        lambda: "must-not-be-used",
+    )
+
+    result = rag_service.answer_question(
+        "今日の天気を教えてください",
+        knowledge_base="fraud_alerts",
+    )
+
+    assert result["sources"] == []
+    assert result["metadata"]["retrievalStatus"] == "NO_EVIDENCE"
+    assert result["metadata"]["groundingStatus"] == "NOT_GROUNDED"
+    assert "関連するデモ用社内ガイドラインを特定できませんでした" in result["answer"]
+
+
+def test_fraud_answer_reports_guidance_load_failure(monkeypatch):
+    def raise_missing_file(question, knowledge_base):
+        del question, knowledge_base
+        raise FileNotFoundError("demo guidance missing")
+
+    monkeypatch.setattr(rag_service, "retrieve_relevant_documents", raise_missing_file)
+
+    result = rag_service.answer_question(
+        "新規受取人を確認したい",
+        knowledge_base="fraud_alerts",
+    )
+
+    assert result["sources"] == []
+    assert result["metadata"]["retrievalStatus"] == "FAILED"
+    assert "参照情報を取得できませんでした" in result["answer"]
+
+
+def test_answer_question_rejects_unknown_knowledge_base():
+    try:
+        rag_service.answer_question("確認項目は？", knowledge_base="unknown")
+    except ValueError as error:
+        assert str(error) == "knowledgeBase is not supported"
+    else:
+        raise AssertionError("Expected unsupported knowledge base error")

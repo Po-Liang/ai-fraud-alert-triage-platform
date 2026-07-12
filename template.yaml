@@ -65,6 +65,8 @@ Resources:
             options: *CorsPreflightOptions
           /alerts/{alertId}/analyze:
             options: *CorsPreflightOptions
+          /alerts/{alertId}/review:
+            options: *CorsPreflightOptions
           /claims/analyze:
             options: *CorsPreflightOptions
           /rag/query:
@@ -95,6 +97,7 @@ Resources:
     Type: AWS::SQS::Queue
     Properties:
       QueueName: FraudAnalysisQueue
+      VisibilityTimeout: 180
       RedrivePolicy:
         deadLetterTargetArn: !GetAtt FraudAnalysisDeadLetterQueue.Arn
         maxReceiveCount: 3
@@ -208,6 +211,7 @@ Resources:
       BuildMethod: makefile
     Properties:
       Handler: src.handlers.analysis_worker.lambda_handler
+      Timeout: 30
       Environment:
         Variables:
           ALERTS_TABLE_NAME: !Ref FraudAlertsTable
@@ -232,6 +236,30 @@ Resources:
             BatchSize: 10
             FunctionResponseTypes:
               - ReportBatchItemFailures
+
+  ReviewAlertFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: makefile
+    Properties:
+      Handler: src.handlers.review_alert.lambda_handler
+      Environment:
+        Variables:
+          ALERTS_TABLE_NAME: !Ref FraudAlertsTable
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:GetItem
+                - dynamodb:UpdateItem
+              Resource: !GetAtt FraudAlertsTable.Arn
+      Events:
+        ReviewAlertApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FraudTriageApi
+            Path: /alerts/{alertId}/review
+            Method: post
 
   RagQueryFunction:
     Type: AWS::Serverless::Function

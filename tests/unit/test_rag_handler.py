@@ -115,3 +115,57 @@ def test_rag_query_returns_400_when_question_is_empty():
 
     assert response["statusCode"] == 400
     assert json.loads(response["body"]) == {"message": "question is required"}
+
+
+def test_rag_query_forwards_fraud_knowledge_base(monkeypatch):
+    calls = {}
+
+    def answer_question(question, knowledge_base):
+        calls.update(question=question, knowledge_base=knowledge_base)
+        return {"answer": "回答", "sources": [], "metadata": {}}
+
+    monkeypatch.setattr(rag_query.rag_service, "answer_question", answer_question)
+
+    response = rag_query.lambda_handler(
+        {
+            "body": json.dumps(
+                {
+                    "question": "新規受取人を確認したい",
+                    "knowledgeBase": "fraud_alerts",
+                }
+            )
+        },
+        None,
+    )
+
+    assert response["statusCode"] == 200
+    assert calls == {
+        "question": "新規受取人を確認したい",
+        "knowledge_base": "fraud_alerts",
+    }
+
+
+def test_rag_query_rejects_unknown_knowledge_base():
+    response = rag_query.lambda_handler(
+        {
+            "body": json.dumps(
+                {"question": "確認項目は？", "knowledgeBase": "unknown"}
+            )
+        },
+        None,
+    )
+
+    assert response["statusCode"] == 400
+    assert json.loads(response["body"]) == {
+        "message": "knowledgeBase is not supported"
+    }
+
+
+def test_rag_query_rejects_overly_long_question():
+    response = rag_query.lambda_handler(
+        {"body": json.dumps({"question": "あ" * 1001})},
+        None,
+    )
+
+    assert response["statusCode"] == 400
+    assert "1000 characters or fewer" in json.loads(response["body"])["message"]

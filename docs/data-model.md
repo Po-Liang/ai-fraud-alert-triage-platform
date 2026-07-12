@@ -103,3 +103,9 @@ Possible future shape:
 - `GSI4PK = CREATED_AT#{yyyy-mm-dd...}`
 
 Those indexes are intentionally deferred to keep the MVP simple and explainable.
+
+## Human Review History
+
+The NTT DATA demo reuses the existing alert metadata item and appends small review events to `reviewHistory`. It also stores the latest action in `reviewStatus`.
+
+Review events include a generated event ID and timestamp, analyst action, optional comment, workflow run ID, and workflow version. This is sufficient for prototype traceability without introducing a new table or changing the table keys. It is not an immutable or compliance-certified audit log.

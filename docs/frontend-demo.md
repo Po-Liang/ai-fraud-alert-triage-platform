@@ -15,6 +15,13 @@ It demonstrates:
 
 The frontend is intentionally small and is not a production deployment target.
 
+The two company demos use separate local development servers:
+
+- `npm run dev:nttdata` → `http://localhost:5176/nttdata-agent-demo`
+- `npm run dev:insurance` → `http://localhost:5177/insurance-claims-demo`
+
+Each server renders only its intended company demo; there is no cross-company selector. Both reuse the same frontend project, API client, components, and styling. The NTT DATA workflow is documented in `docs/nttdata-agent-platform-demo.md`.
+
 ## Install Dependencies
 
 From the repository root:
@@ -26,16 +33,22 @@ npm install
 
 ## Run Locally
 
-Start the Vite dev server:
+Start the insurance claims demo:
 
 ```bash
-npm run dev
+npm run dev:insurance
 ```
 
-Open the local URL printed by Vite, usually:
+Open:
 
 ```text
-http://localhost:5173/
+http://localhost:5177/insurance-claims-demo
+```
+
+The NTT DATA demo can run concurrently in another terminal:
+
+```bash
+npm run dev:nttdata
 ```
 
 ## Configure Backend API
@@ -43,7 +56,7 @@ http://localhost:5173/
 Set `VITE_API_BASE_URL` to the deployed API Gateway base URL when you want the frontend to call the backend:
 
 ```bash
-VITE_API_BASE_URL="https://your-api-id.execute-api.ap-northeast-1.amazonaws.com/Prod" npm run dev
+VITE_API_BASE_URL="https://your-api-id.execute-api.ap-northeast-1.amazonaws.com/Prod" npm run dev:insurance
 ```
 
 Or create a local file from the example:
@@ -52,7 +65,7 @@ Or create a local file from the example:
 cp .env.local.example .env.local
 ```
 
-Then edit `.env.local` with your deployed API URL and restart `npm run dev`. Vite reads `VITE_` environment variables when the dev server starts.
+Then edit `.env.local` with your deployed API URL and restart the relevant demo command. Vite reads `VITE_` environment variables when the dev server starts.
 
 The frontend calls:
 

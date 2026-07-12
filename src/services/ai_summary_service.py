@@ -65,7 +65,7 @@ def _generate_openai_summary(
                 {
                     "role": "system",
                     "content": (
-                        "You support fraud investigators. You must not make a final "
+                        "You support fraud investigators. Respond in Japanese. You must not make a final "
                         "fraud determination. Use cautious language such as 'may "
                         "indicate', 'should be reviewed', and 'requires verification'. "
                         "Return only valid JSON with keys aiSummary and "

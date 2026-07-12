@@ -4,7 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "npm run dev:nttdata",
+    "dev:nttdata": "VITE_DEMO_MODE=nttdata vite --port 5176",
+    "dev:insurance": "VITE_DEMO_MODE=insurance vite --port 5177",
     "build": "tsc -b && vite build",
     "preview": "vite preview"
   },

@@ -288,3 +288,36 @@ def test_get_table_name_strips_whitespace(monkeypatch):
     monkeypatch.setenv("ALERTS_TABLE_NAME", " alerts-table ")
 
     assert alert_repository._get_table_name() == "alerts-table"
+
+
+def test_append_review_event_appends_audit_friendly_event(monkeypatch):
+    mock_table = Mock()
+    review_event = {
+        "reviewEventId": "review-1",
+        "action": "ESCALATE",
+        "reviewedAt": "2026-07-11T10:00:00Z",
+        "workflowRunId": "run-1",
+        "workflowVersion": "nttdata-fraud-investigation-v1",
+    }
+    mock_table.update_item.return_value = {
+        "Attributes": {
+            "PK": "ALERT#alert-1",
+            "SK": "METADATA",
+            "reviewHistory": [review_event],
+            "reviewStatus": "ESCALATE",
+        }
+    }
+    monkeypatch.setattr(alert_repository, "_get_table", lambda: mock_table)
+    monkeypatch.setattr(
+        alert_repository,
+        "_current_timestamp",
+        lambda: "2026-07-11T10:00:01Z",
+    )
+
+    result = alert_repository.append_review_event("alert-1", review_event)
+
+    assert result["reviewHistory"] == [review_event]
+    update_kwargs = mock_table.update_item.call_args.kwargs
+    assert "list_append" in update_kwargs["UpdateExpression"]
+    assert update_kwargs["ExpressionAttributeValues"][":event"] == [review_event]
+    assert update_kwargs["ExpressionAttributeValues"][":reviewStatus"] == "ESCALATE"
