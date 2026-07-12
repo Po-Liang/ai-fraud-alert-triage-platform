@@ -9,11 +9,14 @@ flowchart LR
     Api --> List["ListAlertsFunction"]
     Api --> Get["GetAlertFunction"]
     Api --> Requeue["AnalyzeAlertFunction"]
+    Api --> Review["ReviewAlertFunction"]
+    Api --> Rag["RagQueryFunction"]
 
     Create --> AlertService["alert_service"]
     List --> AlertService
     Get --> AlertService
     Requeue --> AlertService
+    Review --> AlertService
 
     AlertService --> Repo["alert_repository"]
     Repo --> DDB["DynamoDB: FraudAlertsTable"]
@@ -29,8 +32,20 @@ flowchart LR
     Secrets --> SM["AWS Secrets Manager"]
     Summary --> OpenAI["OpenAI API"]
 
+    Rag --> LocalGuidance["Local synthetic demo guidance"]
+    Rag --> Secrets
+    Rag --> OpenAI
+
     SQS --> DLQ["SQS DLQ"]
 ```
+
+## NTT DATA Agent-Oriented Demo View
+
+The React interview UI presents the existing services as four logical workflow stages: triage/risk analysis, evidence retrieval, investigation planning, and human review. These are workflow roles, not autonomous agents.
+
+The UI creates an alert through the existing API, polls the existing alert endpoint while SQS processing runs, queries the additive fraud demo knowledge-base option, creates a deterministic structured task plan, and records the analyst's final action through `POST /alerts/{alertId}/review`.
+
+See `docs/nttdata-agent-platform-demo.md` for the exact prototype boundary and five-minute demonstration flow.
 
 ## Request Flow For `POST /alerts`
 

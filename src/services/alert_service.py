@@ -12,6 +12,15 @@ from src.services import ai_summary_service, queue_service, risk_scoring_service
 STATUS_PENDING_ANALYSIS = "PENDING_ANALYSIS"
 STATUS_ANALYSIS_IN_PROGRESS = "ANALYSIS_IN_PROGRESS"
 STATUS_ANALYSIS_COMPLETED = "ANALYSIS_COMPLETED"
+WORKFLOW_VERSION = "nttdata-fraud-investigation-v1"
+ALLOWED_REVIEW_ACTIONS = {
+    "APPROVE",
+    "REQUEST_REANALYSIS",
+    "ESCALATE",
+    "CLOSE",
+}
+MAX_REVIEW_COMMENT_LENGTH = 1000
+MAX_WORKFLOW_RUN_ID_LENGTH = 100
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -154,3 +163,72 @@ def analyze_alert(alert_id: str) -> dict:
         raise AlertNotFoundError(f"Alert '{alert_id}' does not exist") from error
 
     return analysis_result
+
+
+def record_review(alert_id: str, input_data: dict[str, Any]) -> dict[str, Any]:
+    if not isinstance(input_data, dict):
+        raise ValueError("Review input must be a JSON object")
+
+    raw_action = input_data.get("action")
+    if raw_action is None:
+        raise ValueError("action is required")
+    if not isinstance(raw_action, str):
+        raise ValueError("action must be a string")
+    action = raw_action.strip().upper()
+    if action not in ALLOWED_REVIEW_ACTIONS:
+        raise ValueError("action is not supported")
+
+    raw_workflow_run_id = input_data.get("workflowRunId")
+    if raw_workflow_run_id is None:
+        raise ValueError("workflowRunId is required")
+    if not isinstance(raw_workflow_run_id, str):
+        raise ValueError("workflowRunId must be a string")
+    workflow_run_id = raw_workflow_run_id.strip()
+    if not workflow_run_id:
+        raise ValueError("workflowRunId is required")
+    if len(workflow_run_id) > MAX_WORKFLOW_RUN_ID_LENGTH:
+        raise ValueError(
+            f"workflowRunId must be {MAX_WORKFLOW_RUN_ID_LENGTH} characters or fewer"
+        )
+
+    raw_comment = input_data.get("comment")
+    if raw_comment is None:
+        comment = None
+    elif not isinstance(raw_comment, str):
+        raise ValueError("comment must be a string")
+    else:
+        comment = raw_comment.strip() or None
+        if comment and len(comment) > MAX_REVIEW_COMMENT_LENGTH:
+            raise ValueError(
+                f"comment must be {MAX_REVIEW_COMMENT_LENGTH} characters or fewer"
+            )
+
+    if action in {"REQUEST_REANALYSIS", "ESCALATE"} and not comment:
+        raise ValueError("comment is required for re-analysis or escalation")
+
+    if alert_repository.get_alert(alert_id) is None:
+        raise AlertNotFoundError(f"Alert '{alert_id}' does not exist")
+
+    reviewed_at = _current_timestamp()
+    review_event = {
+        "reviewEventId": str(uuid4()),
+        "action": action,
+        "reviewedAt": reviewed_at,
+        "workflowRunId": workflow_run_id,
+        "workflowVersion": WORKFLOW_VERSION,
+    }
+    if comment:
+        review_event["comment"] = comment
+
+    try:
+        alert_repository.append_review_event(alert_id, review_event)
+    except alert_repository.AlertNotFoundError as error:
+        raise AlertNotFoundError(f"Alert '{alert_id}' does not exist") from error
+    except alert_repository.AlertRepositoryError as error:
+        raise AlertServiceError("Failed to record review") from error
+
+    return {
+        "alertId": alert_id,
+        "reviewStatus": action,
+        "reviewEvent": review_event,
+    }

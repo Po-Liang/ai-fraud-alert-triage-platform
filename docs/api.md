@@ -158,6 +158,43 @@ Common error responses:
 - `404` alert not found
 - `500` analysis job could not be queued
 
+### `POST /alerts/{alertId}/review`
+
+Records a human analyst action after the AI-assisted investigation workflow. This is an additive endpoint and does not change existing alert APIs.
+
+Request:
+
+```json
+{
+  "action": "ESCALATE",
+  "workflowRunId": "workflow-123",
+  "comment": "Multiple rule signals require additional investigation."
+}
+```
+
+Allowed actions are `APPROVE`, `REQUEST_REANALYSIS`, `ESCALATE`, and `CLOSE`. The server generates the review event ID, UTC timestamp, and workflow version. The event is appended to the existing alert item's `reviewHistory`.
+
+`comment` is required for `REQUEST_REANALYSIS` and `ESCALATE` so consequential actions retain an analyst-provided reason. It remains optional for `APPROVE` and `CLOSE`.
+
+Common responses:
+
+- `201` review event recorded
+- `400` invalid action, JSON, workflow run ID, or comment
+- `404` alert not found
+
+### Additive `POST /rag/query` options
+
+The existing `{ "question": "..." }` request continues to use the insurance-claims demo guidance by default. Fraud investigation can opt in without changing the route:
+
+```json
+{
+  "question": "What should be checked for a new beneficiary?",
+  "knowledgeBase": "fraud_alerts"
+}
+```
+
+Responses retain `answer` and `sources`, and add optional source excerpts plus `metadata` describing the actual knowledge base, retrieval status, grounding status, generation mode, and model only when an OpenAI call succeeds.
+
 ## Response Format
 
 All handlers return API Gateway proxy-style responses:

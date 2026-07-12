@@ -117,7 +117,11 @@ def _raise_repository_error(error: Exception, operation: str) -> None:
         if operation == "create":
             raise AlertAlreadyExistsError("Alert already exists") from error
 
-        if operation in {"update_status", "update_analysis_result"}:
+        if operation in {
+            "update_status",
+            "update_analysis_result",
+            "append_review_event",
+        }:
             raise AlertNotFoundError("Alert was not found") from error
 
     if error_code is not None:
@@ -252,5 +256,36 @@ def update_analysis_result(alert_id: str, analysis_result: dict) -> dict:
         )
     except Exception as error:
         _raise_repository_error(error, operation="update_analysis_result")
+
+    return _deserialize_from_dynamodb(response.get("Attributes", {}))
+
+
+def append_review_event(alert_id: str, review_event: dict[str, Any]) -> dict:
+    table = _get_table()
+    timestamp = _current_timestamp()
+    review_status = str(review_event.get("action", "")).strip()
+    if not review_status:
+        raise ValueError("review_event must include an action")
+
+    try:
+        response = table.update_item(
+            Key=_build_key(alert_id),
+            UpdateExpression=(
+                "SET reviewHistory = list_append(if_not_exists(reviewHistory, :empty), :event), "
+                "reviewStatus = :reviewStatus, updatedAt = :updatedAt"
+            ),
+            ExpressionAttributeValues=_serialize_for_dynamodb(
+                {
+                    ":empty": [],
+                    ":event": [review_event],
+                    ":reviewStatus": review_status,
+                    ":updatedAt": timestamp,
+                }
+            ),
+            ReturnValues="ALL_NEW",
+            ConditionExpression="attribute_exists(PK) AND attribute_exists(SK)",
+        )
+    except Exception as error:
+        _raise_repository_error(error, operation="append_review_event")
 
     return _deserialize_from_dynamodb(response.get("Attributes", {}))

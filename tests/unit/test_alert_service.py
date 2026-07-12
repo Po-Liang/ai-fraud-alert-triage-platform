@@ -410,3 +410,136 @@ def test_analyze_alert_translates_repository_not_found_during_status_update(monk
         assert str(error) == "Alert 'alert-123' does not exist"
     else:
         raise AssertionError("Expected analyze_alert to translate repository not found")
+
+
+def test_record_review_creates_versioned_event(monkeypatch):
+    append_calls = []
+    monkeypatch.setattr(
+        alert_service.alert_repository,
+        "get_alert",
+        lambda alert_id: {"alertId": alert_id},
+    )
+    monkeypatch.setattr(
+        alert_service.alert_repository,
+        "append_review_event",
+        lambda alert_id, event: append_calls.append((alert_id, event)),
+    )
+    monkeypatch.setattr(
+        alert_service,
+        "_current_timestamp",
+        lambda: "2026-07-11T10:00:00Z",
+    )
+    monkeypatch.setattr(alert_service, "uuid4", lambda: "review-1")
+
+    result = alert_service.record_review(
+        "alert-1",
+        {
+            "action": "escalate",
+            "comment": "追加調査が必要",
+            "workflowRunId": "run-1",
+        },
+    )
+
+    assert result == {
+        "alertId": "alert-1",
+        "reviewStatus": "ESCALATE",
+        "reviewEvent": {
+            "reviewEventId": "review-1",
+            "action": "ESCALATE",
+            "comment": "追加調査が必要",
+            "reviewedAt": "2026-07-11T10:00:00Z",
+            "workflowRunId": "run-1",
+            "workflowVersion": "nttdata-fraud-investigation-v1",
+        },
+    }
+    assert append_calls == [("alert-1", result["reviewEvent"])]
+
+
+def test_record_review_rejects_unknown_action(monkeypatch):
+    try:
+        alert_service.record_review(
+            "alert-1",
+            {"action": "AUTO_BLOCK", "workflowRunId": "run-1"},
+        )
+    except ValueError as error:
+        assert str(error) == "action is not supported"
+    else:
+        raise AssertionError("Expected unsupported action error")
+
+
+def test_record_review_requires_workflow_run_id():
+    try:
+        alert_service.record_review("alert-1", {"action": "APPROVE"})
+    except ValueError as error:
+        assert str(error) == "workflowRunId is required"
+    else:
+        raise AssertionError("Expected workflowRunId validation error")
+
+
+def test_record_review_raises_when_alert_is_missing(monkeypatch):
+    monkeypatch.setattr(
+        alert_service.alert_repository,
+        "get_alert",
+        lambda alert_id: None,
+    )
+
+    try:
+        alert_service.record_review(
+            "missing",
+            {"action": "CLOSE", "workflowRunId": "run-1"},
+        )
+    except alert_service.AlertNotFoundError as error:
+        assert str(error) == "Alert 'missing' does not exist"
+    else:
+        raise AssertionError("Expected missing alert error")
+
+
+def test_record_review_requires_comment_for_escalation():
+    try:
+        alert_service.record_review(
+            "alert-1",
+            {"action": "ESCALATE", "workflowRunId": "run-1"},
+        )
+    except ValueError as error:
+        assert str(error) == "comment is required for re-analysis or escalation"
+    else:
+        raise AssertionError("Expected escalation comment validation error")
+
+
+def test_record_review_rejects_non_string_workflow_run_id():
+    try:
+        alert_service.record_review(
+            "alert-1",
+            {"action": "APPROVE", "workflowRunId": 123},
+        )
+    except ValueError as error:
+        assert str(error) == "workflowRunId must be a string"
+    else:
+        raise AssertionError("Expected workflowRunId type validation error")
+
+
+def test_record_review_translates_repository_failure(monkeypatch):
+    monkeypatch.setattr(
+        alert_service.alert_repository,
+        "get_alert",
+        lambda alert_id: {"alertId": alert_id},
+    )
+
+    def fail_append(alert_id, review_event):
+        raise alert_service.alert_repository.AlertRepositoryError("dynamodb failed")
+
+    monkeypatch.setattr(
+        alert_service.alert_repository,
+        "append_review_event",
+        fail_append,
+    )
+
+    try:
+        alert_service.record_review(
+            "alert-1",
+            {"action": "APPROVE", "workflowRunId": "run-1"},
+        )
+    except alert_service.AlertServiceError as error:
+        assert str(error) == "Failed to record review"
+    else:
+        raise AssertionError("Expected repository failure translation")

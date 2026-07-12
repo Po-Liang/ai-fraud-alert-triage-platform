@@ -30,6 +30,7 @@ def test_generate_investigation_summary_uses_openai_when_available(monkeypatch):
         assert timeout == 15
         payload = json.loads(request.data.decode("utf-8"))
         assert payload["model"] == "gpt-4o-mini"
+        assert "Respond in Japanese" in payload["messages"][0]["content"]
         return MockResponse(
             json.dumps(
                 {

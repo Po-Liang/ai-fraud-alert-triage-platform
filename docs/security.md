@@ -33,9 +33,17 @@ The infrastructure follows a least-privilege mindset:
 
 - API handler Lambdas receive only the DynamoDB and SQS permissions they need
 - `AnalysisWorkerFunction` receives DynamoDB update permissions and permission to read the OpenAI secret
-- only `AnalysisWorkerFunction` has `secretsmanager:GetSecretValue`
+- only the functions that call OpenAI (`AnalysisWorkerFunction` and `RagQueryFunction`) have `secretsmanager:GetSecretValue`
 
-This means the public API Lambdas do not have access to the OpenAI secret.
+This means alert CRUD, claim analysis, and human-review Lambdas do not have access to the OpenAI secret.
+
+## NTT DATA Demo Reliability Boundaries
+
+- The analysis worker timeout is 30 seconds and the SQS visibility timeout is 180 seconds.
+- Failed SQS records use partial batch failure reporting and move to the DLQ after three receives.
+- Fraud guidance uses local fictional demo documents and returns an explicit unavailable state when documents cannot be loaded.
+- Human review actions are allow-listed and comments are length-limited.
+- The prototype still uses open CORS and has no authentication. Restricting origins and adding identity and authorization are required before production use.
 
 ## No Real Secrets In GitHub Or GitHub Actions
 
